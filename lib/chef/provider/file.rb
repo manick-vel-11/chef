@@ -25,7 +25,7 @@ require 'etc'
 require 'fileutils'
 require 'chef/scan_access_control'
 require 'chef/mixin/checksum'
-require 'chef/mixin/backupable_file_resource'
+require 'chef/util/backup'
 require 'chef/util/diff'
 
 # The Tao of File Providers:
@@ -43,7 +43,6 @@ class Chef
     class File < Chef::Provider
       include Chef::Mixin::EnforceOwnershipAndPermissions
       include Chef::Mixin::Checksum
-      include Chef::Mixin::BackupableFileResource
 
       def initialize(new_resource, run_context)
         @content_class ||= Chef::Provider::File::Content::File
@@ -104,6 +103,10 @@ class Chef
         @file_created == true
       end
 
+      def backup(file = nil)
+        Chef::Util::Backup.new(@new_resource, file).backup!
+      end
+
       def do_contents_changes
         # a nil tempfile is okay, means the resource has no content or no new content
         return if tempfile.nil?
@@ -115,9 +118,9 @@ class Chef
           diff = Chef::Util::Diff.new(@current_resource.path, tempfile.path)
           @new_resource.diff( diff.for_reporting ) unless file_created?
           description = [ "update content in file #{@new_resource.path} from #{short_cksum(@current_resource.checksum)} to #{short_cksum(checksum(tempfile.path))}" ]
-          description << diff.to_a
+          description << diff.to_s
           converge_by(description) do
-            backup @new_resource.path unless file_created?
+            backup unless file_created?
             @deployment_strategy.deploy(tempfile.path, @new_resource.path)
             Chef::Log.info("#{@new_resource} updated file contents #{@new_resource.path}")
           end
