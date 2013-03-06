@@ -67,7 +67,7 @@ describe Chef::Provider::File do
       Etc.should_receive(:getgrgid).with(0).and_return(mock("Group Ent", :name => "wheel"))
       Etc.should_receive(:getpwuid).with(0).and_return(mock("User Ent", :name => "root"))
 
-      # test execution 
+      # test execution
       @provider.load_current_resource
 
       # post-condition checks
@@ -97,9 +97,9 @@ describe Chef::Provider::File do
     context "when the new_resource does not specify the desired access control" do
       it "records access control information in the new resource after modifying the file" do
         # test setup
-        stat_struct = mock("::File.stat", :mode => 0600, :uid => 0, :gid => 0, :mtime => 10000) 
+        stat_struct = mock("::File.stat", :mode => 0600, :uid => 0, :gid => 0, :mtime => 10000)
         # called once in update_new_file_state and once in checksum
-        ::File.should_receive(:stat).once.with(@provider.new_resource.path).and_return(stat_struct)  
+        ::File.should_receive(:stat).once.with(@provider.new_resource.path).and_return(stat_struct)
         ::File.should_receive(:directory?).once.with(@provider.new_resource.path).and_return(false)
 
         Etc.should_receive(:getpwuid).with(0).and_return(mock("User Ent", :name => "root"))
@@ -254,83 +254,6 @@ describe Chef::Provider::File do
     @provider.access_controls.should_receive(:set_all).once
     @provider.run_action(:touch)
     @resource.should be_updated_by_last_action
-  end
-
-  it "should keep 1 backup copy if specified" do
-    @provider.load_current_resource
-    @provider.new_resource.stub!(:path).and_return("/tmp/s-20080705111233")
-    @provider.new_resource.stub!(:backup).and_return(1)
-    Dir.stub!(:[]).and_return([ "/tmp/s-20080705111233", "/tmp/s-20080705111232", "/tmp/s-20080705111223"])
-    FileUtils.should_receive(:rm).with("/tmp/s-20080705111223").once.and_return(true)
-    FileUtils.should_receive(:rm).with("/tmp/s-20080705111232").once.and_return(true)
-    FileUtils.stub!(:cp).and_return(true)
-    FileUtils.stub!(:mkdir_p).and_return(true)
-    File.stub!(:exist?).and_return(true)
-    @provider.backup
-  end
-
-  it "should backup a file no more than :backup times" do
-    @provider.load_current_resource
-    @provider.new_resource.stub!(:path).and_return("/tmp/s-20080705111233")
-    @provider.new_resource.stub!(:backup).and_return(2)
-    Dir.stub!(:[]).and_return([ "/tmp/s-20080705111233", "/tmp/s-20080705111232", "/tmp/s-20080705111223"])
-    FileUtils.should_receive(:rm).with("/tmp/s-20080705111223").once.and_return(true)
-    FileUtils.stub!(:cp).and_return(true)
-    FileUtils.stub!(:mkdir_p).and_return(true)
-    File.stub!(:exist?).and_return(true)
-    @provider.backup
-  end
-
-  it "should not attempt to backup a file if :backup == 0" do
-    @provider.load_current_resource
-    @provider.new_resource.stub!(:path).and_return("/tmp/s-20080705111233")
-    @provider.new_resource.stub!(:backup).and_return(0)
-    FileUtils.stub!(:cp).and_return(true)
-    File.stub!(:exist?).and_return(true)
-    FileUtils.should_not_receive(:cp)
-    @provider.backup
-  end
-
-  it "should put the backup backup file in the directory specified by Chef::Config[:file_backup_path]" do
-    @provider.load_current_resource
-    @provider.new_resource.stub!(:path).and_return("/tmp/s-20080705111233")
-    @provider.new_resource.stub!(:backup).and_return(1)
-    Chef::Config.stub!(:[]).with(:file_backup_path).and_return("/some_prefix")
-    Dir.stub!(:[]).and_return([ "/some_prefix/tmp/s-20080705111233", "/some_prefix/tmp/s-20080705111232", "/some_prefix/tmp/s-20080705111223"])
-    FileUtils.should_receive(:mkdir_p).with("/some_prefix/tmp").once
-    FileUtils.should_receive(:rm).with("/some_prefix/tmp/s-20080705111232").once.and_return(true)
-    FileUtils.should_receive(:rm).with("/some_prefix/tmp/s-20080705111223").once.and_return(true)
-    FileUtils.stub!(:cp).and_return(true)
-    File.stub!(:exist?).and_return(true)
-    @provider.backup
-  end
-
-  it "should strip the drive letter from the backup resource path (for Windows platforms)" do
-    @provider.load_current_resource
-    @provider.new_resource.stub!(:path).and_return("C:/tmp/s-20080705111233")
-    @provider.new_resource.stub!(:backup).and_return(1)
-    Chef::Config.stub!(:[]).with(:file_backup_path).and_return("C:/some_prefix")
-    Dir.stub!(:[]).and_return([ "C:/some_prefix/tmp/s-20080705111233", "C:/some_prefix/tmp/s-20080705111232", "C:/some_prefix/tmp/s-20080705111223"])
-    FileUtils.should_receive(:mkdir_p).with("C:/some_prefix/tmp").once
-    FileUtils.should_receive(:rm).with("C:/some_prefix/tmp/s-20080705111232").once.and_return(true)
-    FileUtils.should_receive(:rm).with("C:/some_prefix/tmp/s-20080705111223").once.and_return(true)
-    FileUtils.stub!(:cp).and_return(true)
-    File.stub!(:exist?).and_return(true)
-    @provider.backup
-  end
-
-  it "should keep the same ownership on backed up files" do
-    @provider.load_current_resource
-    @provider.new_resource.stub!(:path).and_return("/tmp/s-20080705111233")
-    @provider.new_resource.stub!(:backup).and_return(1)
-    Chef::Config.stub!(:[]).with(:file_backup_path).and_return("/some_prefix")
-    Dir.stub!(:[]).and_return([ "/some_prefix/tmp/s-20080705111233", "/some_prefix/tmp/s-20080705111232", "/some_prefix/tmp/s-20080705111223"])
-    FileUtils.stub!(:mkdir_p).and_return(true)
-    FileUtils.stub!(:rm).and_return(true)
-    File.stub!(:exist?).and_return(true)
-    Time.stub!(:now).and_return(Time.at(1272147455).getgm)
-    FileUtils.should_receive(:cp).with("/tmp/s-20080705111233", "/some_prefix/tmp/s-20080705111233.chef-20100424221735", {:preserve => true}).and_return(true)
-    @provider.backup
   end
 
   describe "when the enclosing directory does not exist" do
