@@ -1,6 +1,6 @@
 #
-# Author:: Toomas Pelberg (<toomasp@gmx.net>)
-# Copyright:: Copyright (c) 2010 Opscode, Inc.
+# Author:: 
+# Copyright:: Copyright (c) 2009 Opscode, Inc
 # License:: Apache License, Version 2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
 #
 require 'chef/provider/package'
 require 'chef/mixin/command'
@@ -80,7 +81,7 @@ class Chef
           end
 
           unless status.exitstatus == 0 || status.exitstatus == 1
-            raise Chef::Exceptions::Package, "pkginfo failed - #{status.inspect}!"
+            raise Chef::Exceptions::Package, "lslpp failed - #{status.inspect}!"
           end
 
           unless @current_resource.version.nil?
@@ -113,16 +114,18 @@ class Chef
           Chef::Log.debug("#{@new_resource} package install options: #{@new_resource.options}")
           if @new_resource.options.nil?
             run_command_with_systems_locale(
-                    :command => "installp -aF #{@new_resource.source} #{new_resource}.pack"
+                    :command => "installp -aYF -d #{@new_resource.source} #{@new_resource.package_name}"
                   )
             Chef::Log.debug("#{@new_resource} installed version #{@new_resource.version} from: #{@new_resource.source}")
           else
             run_command_with_systems_locale(
-              :command => "installp -aF #{expand_options(@new_resource.options)} -d #{@new_resource.source} #{@new_resource.package_name}"
+              :command => "installp -aYF #{expand_options(@new_resource.options)} -d #{@new_resource.source} #{@new_resource.package_name}"
             )
             Chef::Log.debug("#{@new_resource} installed version #{@new_resource.version} from: #{@new_resource.source}")
           end
         end
+
+        alias_method :upgrade_package, :install_package
 
         def remove_package(name, version)
           if @new_resource.options.nil?
