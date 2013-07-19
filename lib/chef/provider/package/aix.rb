@@ -28,10 +28,6 @@ class Chef
 
         include Chef::Mixin::GetSourceFromPackage
 
-        # def initialize(*args)
-        #   super
-        #   @current_resource = Chef::Resource::Package.new(@new_resource.name)
-        # end
         def define_resource_requirements
           super
           requirements.assert(:install) do |a| 
@@ -82,10 +78,6 @@ class Chef
 
           unless status.exitstatus == 0 || status.exitstatus == 1
             raise Chef::Exceptions::Package, "lslpp failed - #{status.inspect}!"
-          end
-
-          unless @current_resource.version.nil?
-            @current_resource.version(nil)
           end
 
           @current_resource
