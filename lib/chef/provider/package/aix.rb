@@ -1,6 +1,6 @@
 #
-# Author:: 
-# Copyright:: Copyright (c) 2009 Opscode, Inc
+# Author:: Deepali Jagtap
+# Copyright:: Copyright (c) 2013 Opscode, Inc
 # License:: Apache License, Version 2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -102,6 +102,13 @@ class Chef
           @candidate_version
         end
 
+#
+#  The install/update action needs to be tested with various kinds of packages 
+#  on AIX viz.  packages with or without licensing file dependencies, packages 
+#  with dependencies on other packages which will help to test additional 
+#  options of installp.
+#  So far, the code has been tested only with standalone packages.
+#
         def install_package(name, version)
           Chef::Log.debug("#{@new_resource} package install options: #{@new_resource.options}")
           if @new_resource.options.nil?
