@@ -18,40 +18,46 @@
 require 'spec_helper'
 require 'functional/resource/base'
 require 'chef/resource/rpm_package'
+require 'chef/mixin/shell_out'
 
 describe Chef::Resource::RpmPackage do
+  include Chef::Mixin::ShellOut
 
-  def rpm_pkg_binary_file_exist(resource)
+  def rpm_pkg_should_be_installed(resource)
     case ohai[:platform]
 
     when "aix"
-
+      expect(shell_out("rpm -qa | grep a2ps").exitstatus).to eq(0)
     when "centos"
-      pkg_binary = "/usr/bin/a2ps"
-      ::File.exists?(pkg_binary)
+      expect(shell_out("rpm -qa | grep a2ps").exitstatus).to eq(0)
     end
   end
 
-  def rpm_pkg_binary_file_does_not_exist(resource)
-   case ohai[:platform]
+
+  def rpm_pkg_should_not_be_installed(resource)
+    case ohai[:platform]
 
     when "aix"
-
+      expect(shell_out("rpm -qa | grep a2ps").exitstatus).to eq(0)
     when "centos"
-      pkg_binary = "/usr/bin/a2ps"
-      !::File.exists?(pkg_binary)
+      expect(shell_out("rpm -qa | grep a2ps").exitstatus).to eq(1)
     end
   end
 
   before(:each) do
+    FileUtils.cp 'spec/functional/assets/a2ps-4.14-10.1.el6.x86_64.rpm' , "/tmp/a2ps-4.14-10.1.el6.x86_64.rpm"
     @new_resource = Chef::Resource::RpmPackage.new("a2ps", run_context)
     @new_resource.source "/tmp/a2ps-4.14-10.1.el6.x86_64.rpm"
+  end
+
+  after(:each) do
+    FileUtils.rm "/tmp/a2ps-4.14-10.1.el6.x86_64.rpm"
   end
 
   context "package install action" do
     it "- should create a package" do
       @new_resource.run_action(:install)
-      expect{rpm_pkg_binary_file_exist(@new_resource)}.to be_true
+      rpm_pkg_should_be_installed(@new_resource)
     end
 
     after(:each) do
@@ -66,7 +72,7 @@ describe Chef::Resource::RpmPackage do
 
     it "- should remove an existing package" do
       @new_resource.run_action(:remove)
-      expect{rpm_pkg_binary_file_does_not_exist(@new_resource)}.to be_true
+      rpm_pkg_should_not_be_installed(@new_resource)
     end
   end
 end
