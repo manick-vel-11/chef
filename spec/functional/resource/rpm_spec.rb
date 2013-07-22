@@ -16,14 +16,13 @@
 # limitations under the License.
 #
 require 'spec_helper'
+require 'functional/resource/base'
+require 'chef/resource/rpm_package'
 
 describe Chef::Resource::RpmPackage do
-  OHAI_SYSTEM = Ohai::System.new
-  OHAI_SYSTEM.require_plugin("os")
-  OHAI_SYSTEM.require_plugin("platform")
 
   def rpm_pkg_binary_file_exist(resource)
-    case OHAI_SYSTEM[:platform]
+    case ohai[:platform]
 
     when "aix"
 
@@ -34,7 +33,7 @@ describe Chef::Resource::RpmPackage do
   end
 
   def rpm_pkg_binary_file_does_not_exist(resource)
-   case OHAI_SYSTEM[:platform]
+   case ohai[:platform]
 
     when "aix"
 
@@ -45,32 +44,28 @@ describe Chef::Resource::RpmPackage do
   end
 
   before(:each) do
-    @node = Chef::Node.new
-    @events = Chef::EventDispatch::Dispatcher.new
-    @run_context = Chef::RunContext.new(@node, {}, @events)
-    @new_resource = Chef::Resource::Package.new("a2ps")
+    @new_resource = Chef::Resource::RpmPackage.new("a2ps", run_context)
     @new_resource.source "/tmp/a2ps-4.14-10.1.el6.x86_64.rpm"
-    @provider = Chef::Provider::Package::Rpm.new(@new_resource, @run_context)
   end
 
   context "package install action" do
     it "- should create a package" do
-      @provider.run_action(:install)
+      @new_resource.run_action(:install)
       expect{rpm_pkg_binary_file_exist(@new_resource)}.to be_true
     end
 
     after(:each) do
-     @provider.run_action(:remove)
+     @new_resource.run_action(:remove)
     end
   end
 
   context "package remove action" do
     before(:each) do
-     @provider.run_action(:install)
+     @new_resource.run_action(:install)
     end
 
     it "- should remove an existing package" do
-      @provider.run_action(:remove)
+      @new_resource.run_action(:remove)
       expect{rpm_pkg_binary_file_does_not_exist(@new_resource)}.to be_true
     end
   end
