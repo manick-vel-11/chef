@@ -20,7 +20,7 @@ require 'functional/resource/base'
 require 'chef/resource/rpm_package'
 require 'chef/mixin/shell_out'
 
-describe Chef::Resource::RpmPackage do
+describe Chef::Resource::RpmPackage, :requires_root do
   include Chef::Mixin::ShellOut
 
   def rpm_pkg_should_be_installed(resource)
