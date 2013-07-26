@@ -15,13 +15,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-require 'spec_helper'
 require 'functional/resource/base'
 require 'chef/resource/rpm_package'
 require 'chef/mixin/shell_out'
 
 describe Chef::Resource::RpmPackage, :requires_root do
   include Chef::Mixin::ShellOut
+
+  let(:new_resource) do
+     new_resource = Chef::Resource::RpmPackage.new(@pkg_name, run_context)
+     new_resource.source @pkg_path
+     new_resource
+  end
 
   def rpm_pkg_should_be_installed(resource)
     case ohai[:platform]
@@ -44,7 +49,7 @@ describe Chef::Resource::RpmPackage, :requires_root do
     end
   end
 
-  before(:each) do
+  before(:all) do
     case ohai[:platform]
     # Due to dependency issues , different rpm pkgs are used in different platforms.
     when "aix"
@@ -56,33 +61,32 @@ describe Chef::Resource::RpmPackage, :requires_root do
       @pkg_name = "hello"
       @pkg_path = "/tmp/hello-2.8-1.el6.x86_64.rpm"
     end
-    @new_resource = Chef::Resource::RpmPackage.new(@pkg_name, run_context)
-    @new_resource.source @pkg_path
   end
 
-  after(:each) do
+  after(:all) do
     FileUtils.rm @pkg_path
   end
 
-  context "package install action" do
-    it "- should create a package" do
-      @new_resource.run_action(:install)
-      rpm_pkg_should_be_installed(@new_resource)
+  exclude_test = !['aix', 'centos'].include?(ohai[:platform])
+  context "package install action", :external => exclude_test do
+    it "should create a package" do
+      new_resource.run_action(:install)
+      rpm_pkg_should_be_installed(new_resource)
     end
 
     after(:each) do
-     @new_resource.run_action(:remove)
+     new_resource.run_action(:remove)
     end
   end
 
-  context "package remove action" do
+  context "package remove action", :external => exclude_test do
     before(:each) do
-     @new_resource.run_action(:install)
+     new_resource.run_action(:install)
     end
 
-    it "- should remove an existing package" do
-      @new_resource.run_action(:remove)
-      rpm_pkg_should_not_be_installed(@new_resource)
+    it "should remove an existing package" do
+      new_resource.run_action(:remove)
+      rpm_pkg_should_not_be_installed(new_resource)
     end
   end
 end
