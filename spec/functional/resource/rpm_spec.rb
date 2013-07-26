@@ -33,9 +33,9 @@ describe Chef::Resource::RpmPackage, :requires_root do
     # glib rpm package works in aix, without any dependency issues.
     when "aix"
       expect(shell_out("rpm -qa | grep glib").exitstatus).to eq(0)
-    # hello rpm package works in centos, without any dependency issues.
-    when "centos"
-      expect(shell_out("rpm -qa | grep hello").exitstatus).to eq(0)
+    # mytest rpm package works in centos and in redhat without any dependency issues.
+    when "centos", "redhat"
+      expect(shell_out("rpm -qa | grep mytest").exitstatus).to eq(0)
     end
   end
 
@@ -43,8 +43,8 @@ describe Chef::Resource::RpmPackage, :requires_root do
     case ohai[:platform]
     when "aix"
       expect(shell_out("rpm -qa | grep glib").exitstatus).to eq(0)
-    when "centos"
-      expect(shell_out("rpm -qa | grep hello").exitstatus).to eq(1)
+    when "centos", "redhat"
+      expect(shell_out("rpm -qa | grep mytest").exitstatus).to eq(1)
     end
   end
 
@@ -55,10 +55,10 @@ describe Chef::Resource::RpmPackage, :requires_root do
       FileUtils.cp 'spec/functional/assets/glib-1.2.10-2.aix4.3.ppc.rpm' , "/tmp/glib-1.2.10-2.aix4.3.ppc.rpm"
       @pkg_name = "glib"
       @pkg_path = "/tmp/glib-1.2.10-2.aix4.3.ppc.rpm"
-    when "centos"
-      FileUtils.cp 'spec/functional/assets/hello-2.8-1.el6.x86_64.rpm' , "/tmp/hello-2.8-1.el6.x86_64.rpm"
-      @pkg_name = "hello"
-      @pkg_path = "/tmp/hello-2.8-1.el6.x86_64.rpm"
+    when "centos", "redhat"
+      FileUtils.cp 'spec/functional/assets/mytest-1.0-1.noarch.rpm' , "/tmp/mytest-1.0-1.noarch.rpm"
+      @pkg_name = "mytest"
+      @pkg_path = "/tmp/mytest-1.0-1.noarch.rpm"
     end
   end
 
@@ -66,7 +66,7 @@ describe Chef::Resource::RpmPackage, :requires_root do
     FileUtils.rm @pkg_path
   end
 
-  exclude_test = !['aix', 'centos'].include?(ohai[:platform])
+  exclude_test = !['aix', 'centos', 'redhat'].include?(ohai[:platform])
   context "package install action", :external => exclude_test do
     it "should create a package" do
       new_resource.run_action(:install)
