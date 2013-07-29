@@ -15,10 +15,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 require 'functional/resource/base'
 require 'chef/mixin/shell_out'
 
-describe Chef::Resource::RpmPackage, :requires_root do
+# run this test only for following platforms.
+exclude_test = !['aix', 'centos', 'redhat', 'suse'].include?(ohai[:platform])
+describe Chef::Resource::RpmPackage, :requires_root ,:external => exclude_test do
   include Chef::Mixin::ShellOut
 
   let(:new_resource) do
@@ -34,7 +37,7 @@ describe Chef::Resource::RpmPackage, :requires_root do
     when "aix"
       expect(shell_out("rpm -qa | grep glib").exitstatus).to eq(0)
     # mytest rpm package works in centos and in redhat without any dependency issues.
-    when "centos", "redhat"
+    when "centos", "redhat", "suse"
       expect(shell_out("rpm -qa | grep mytest").exitstatus).to eq(0)
     end
   end
@@ -43,7 +46,7 @@ describe Chef::Resource::RpmPackage, :requires_root do
     case ohai[:platform]
     when "aix"
       expect(shell_out("rpm -qa | grep glib").exitstatus).to eq(0)
-    when "centos", "redhat"
+    when "centos", "redhat", "suse"
       expect(shell_out("rpm -qa | grep mytest").exitstatus).to eq(1)
     end
   end
@@ -55,7 +58,7 @@ describe Chef::Resource::RpmPackage, :requires_root do
       FileUtils.cp 'spec/functional/assets/glib-1.2.10-2.aix4.3.ppc.rpm' , "/tmp/glib-1.2.10-2.aix4.3.ppc.rpm"
       @pkg_name = "glib"
       @pkg_path = "/tmp/glib-1.2.10-2.aix4.3.ppc.rpm"
-    when "centos", "redhat"
+    when "centos", "redhat", "suse"
       FileUtils.cp 'spec/functional/assets/mytest-1.0-1.noarch.rpm' , "/tmp/mytest-1.0-1.noarch.rpm"
       @pkg_name = "mytest"
       @pkg_path = "/tmp/mytest-1.0-1.noarch.rpm"
@@ -66,8 +69,7 @@ describe Chef::Resource::RpmPackage, :requires_root do
     FileUtils.rm @pkg_path
   end
 
-  exclude_test = !['aix', 'centos', 'redhat'].include?(ohai[:platform])
-  context "package install action", :external => exclude_test do
+  context "package install action" do
     it "should create a package" do
       new_resource.run_action(:install)
       rpm_pkg_should_be_installed(new_resource)
@@ -78,7 +80,7 @@ describe Chef::Resource::RpmPackage, :requires_root do
     end
   end
 
-  context "package remove action", :external => exclude_test do
+  context "package remove action" do
     before(:each) do
      new_resource.run_action(:install)
     end
