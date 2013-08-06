@@ -13,6 +13,8 @@ group(:development, :test) do
   gem "simplecov"
   gem 'rack', "~> 1.5.1"
 
+  gem 'ohai', :git => 'git://github.com/ClogenyTechnologies/ohai.git', :branch => 'OC-8704-aix'
+
   gem 'ruby-shadow', :platforms => :ruby unless RUBY_PLATFORM.downcase.match(/(darwin|freebsd|aix)/)
 #  gem 'awesome_print'
 #  gem 'pry'
