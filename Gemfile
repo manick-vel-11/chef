@@ -1,9 +1,10 @@
 source "https://rubygems.org"
 
+gem 'ohai', :git => 'git://github.com/ClogenyTechnologies/ohai.git', :branch => 'OC-8704-aix'
+
 gemspec
 
 gem "activesupport", "< 4.0.0", :group => :compat_testing, :platform => "ruby"
-gem 'ohai', :git => 'git://github.com/ClogenyTechnologies/ohai.git', :branch => 'OC-8704-aix'
 
 group(:docgen) do
   gem "ronn"
