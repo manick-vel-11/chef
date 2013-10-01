@@ -3,6 +3,9 @@ gemspec :name => "chef"
 
 gem "activesupport", "< 4.0.0", :group => :compat_testing, :platform => "ruby"
 
+# Use ohai 6-stable branch for CVT testing.
+gem "ohai", :git => "git://github.com/opscode/ohai.git", :branch => "6-stable"
+
 group(:docgen) do
   gem "ronn"
   gem "yard"
