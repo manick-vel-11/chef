@@ -122,7 +122,7 @@ class Chef
           if @current_resource.enabled
             Chef::Log.debug("#{@new_resource} already enabled, not enabling")
           else
-            shell_out!(
+            shell_out_with_systems_locale!(
               "launchctl load -w '#{@plist}'",
               :user => @owner_uid, :group => @owner_gid
             )
@@ -133,7 +133,7 @@ class Chef
           unless @current_resource.enabled
             Chef::Log.debug("#{@new_resource} not enabled, not disabling")
           else
-            shell_out!(
+            shell_out_with_systems_locale!(
               "launchctl unload -w '#{@plist}'",
               :user => @owner_uid, :group => @owner_gid
             )
@@ -143,7 +143,7 @@ class Chef
         def set_service_status
           return if @plist == nil or @service_label.to_s.empty?
 
-          cmd = shell_out(
+          cmd = shell_out_with_systems_locale(
             "launchctl list #{@service_label}",
             :user => @owner_uid, :group => @owner_gid
           )
@@ -158,7 +158,7 @@ class Chef
             @owner_uid = ::File.stat(@plist).uid
             @owner_gid = ::File.stat(@plist).gid
 
-            shell_out!(
+            shell_out_with_systems_locale!(
               "launchctl list", :user => @owner_uid, :group => @owner_gid
             ).stdout.each_line do |line|
               case line
@@ -186,7 +186,7 @@ class Chef
 
           # plist files can come in XML or Binary formats. this command
           # will make sure we get XML every time.
-          plist_xml = shell_out!("plutil -convert xml1 -o - #{@plist}").stdout
+          plist_xml = shell_out_with_systems_locale!("plutil -convert xml1 -o - #{@plist}").stdout
 
           plist_doc = REXML::Document.new(plist_xml)
           plist_doc.elements[

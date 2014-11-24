@@ -58,7 +58,7 @@ describe Chef::Provider::Service::Debian do
         UPDATE_RC_D_SUCCESS
 
         @status = double("Status", :exitstatus => 0, :stdout => result, :stderr => "")
-        allow(@provider).to receive(:shell_out!).and_return(@status)
+        allow(@provider).to receive(:shell_out_with_systems_locale!).and_return(@status)
         allow(@provider).to receive(:shell_out_with_systems_locale).and_return(@status)
       end
 
@@ -78,7 +78,7 @@ describe Chef::Provider::Service::Debian do
         allow(@provider).to receive(:assert_update_rcd_available)
         stdout = " Removing any system startup links for /etc/init.d/chef ..."
         @status = double("Status", :exitstatus => 0, :stdout => stdout, :stderr => "")
-        allow(@provider).to receive(:shell_out!).and_return(@status)
+        allow(@provider).to receive(:shell_out_with_systems_locale!).and_return(@status)
         allow(@provider).to receive(:shell_out_with_systems_locale).and_return(@status)
       end
 
@@ -194,7 +194,7 @@ insserv: dryrun, not creating .depend.boot, .depend.start, and .depend.stop
             stdout = expected_results["linked"]["stdout"]
             stderr = expected_results["linked"]["stderr"]
             @status = double("Status", :exitstatus => 0, :stdout => stdout, :stderr => stderr)
-            allow(@provider).to receive(:shell_out!).and_return(@status)
+            allow(@provider).to receive(:shell_out_with_systems_locale!).and_return(@status)
             allow(@provider).to receive(:shell_out_with_systems_locale).and_return(@status)
           end
 
@@ -221,7 +221,7 @@ insserv: dryrun, not creating .depend.boot, .depend.start, and .depend.stop
             stdout = expected_results["not linked"]["stdout"]
 
             @status = double("Status", :exitstatus => 0, :stdout => stdout, :stderr => stderr)
-            allow(@provider).to receive(:shell_out!).and_return(@status)
+            allow(@provider).to receive(:shell_out_with_systems_locale!).and_return(@status)
             allow(@provider).to receive(:shell_out_with_systems_locale).and_return(@status)
           end
 
@@ -295,7 +295,7 @@ insserv: dryrun, not creating .depend.boot, .depend.start, and .depend.stop
 
   def expect_commands(provider, commands)
     commands.each do |command|
-      expect(provider).to receive(:shell_out!).with(command)
+      expect(provider).to receive(:shell_out_with_systems_locale!).with(command)
     end
   end
 

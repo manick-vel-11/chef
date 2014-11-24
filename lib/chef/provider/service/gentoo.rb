@@ -62,10 +62,10 @@ class Chef::Provider::Service::Gentoo < Chef::Provider::Service::Init
   end
 
   def enable_service()
-    shell_out!("/sbin/rc-update add #{@new_resource.service_name} default")
+    shell_out_with_systems_locale!("/sbin/rc-update add #{@new_resource.service_name} default")
   end
 
   def disable_service()
-    shell_out!("/sbin/rc-update del #{@new_resource.service_name} default")
+    shell_out_with_systems_locale!("/sbin/rc-update del #{@new_resource.service_name} default")
   end
 end

@@ -114,7 +114,7 @@ class Chef
             Chef::Log.debug("#{@new_resource} you have specified a status command, running..")
 
             begin
-              if shell_out(@new_resource.status_command).exitstatus == 0
+              if shell_out_with_systems_locale(@new_resource.status_command).exitstatus == 0
                 @current_resource.running true
                 Chef::Log.debug("#{@new_resource} is running")
               end
@@ -130,7 +130,7 @@ class Chef
           elsif @new_resource.supports[:status]
             Chef::Log.debug("#{@new_resource} supports status, running")
             begin
-              if shell_out("#{default_init_command} status").exitstatus == 0
+              if shell_out_with_systems_locale("#{default_init_command} status").exitstatus == 0
                 @current_resource.running true
                 Chef::Log.debug("#{@new_resource} is running")
               end
@@ -147,7 +147,7 @@ class Chef
             r = Regexp.new(@new_resource.pattern)
             Chef::Log.debug "#{@new_resource} attempting to match '#{@new_resource.pattern}' (#{r.inspect}) against process list"
             begin
-              shell_out!(ps_cmd).stdout.each_line do |line|
+              shell_out_with_systems_locale!(ps_cmd).stdout.each_line do |line|
                 if r.match(line)
                   @current_resource.running true
                   break

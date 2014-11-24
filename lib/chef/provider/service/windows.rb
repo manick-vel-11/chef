@@ -76,7 +76,7 @@ class Chef::Provider::Service::Windows < Chef::Provider::Service
       elsif state == STOPPED
         if @new_resource.start_command
           Chef::Log.debug "#{@new_resource} starting service using the given start_command"
-          shell_out!(@new_resource.start_command)
+          shell_out_with_systems_locale!(@new_resource.start_command)
         else
           spawn_command_thread do
             Win32::Service.start(@new_resource.service_name)
@@ -98,7 +98,7 @@ class Chef::Provider::Service::Windows < Chef::Provider::Service
       if state == RUNNING
         if @new_resource.stop_command
           Chef::Log.debug "#{@new_resource} stopping service using the given stop_command"
-          shell_out!(@new_resource.stop_command)
+          shell_out_with_systems_locale!(@new_resource.stop_command)
         else
           spawn_command_thread do
             Win32::Service.stop(@new_resource.service_name)
@@ -123,7 +123,7 @@ class Chef::Provider::Service::Windows < Chef::Provider::Service
     if Win32::Service.exists?(@new_resource.service_name)
       if @new_resource.restart_command
         Chef::Log.debug "#{@new_resource} restarting service using the given restart_command"
-        shell_out!(@new_resource.restart_command)
+        shell_out_with_systems_locale!(@new_resource.restart_command)
       else
         stop_service
         start_service

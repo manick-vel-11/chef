@@ -107,7 +107,7 @@ class Chef
             Chef::Log.debug("#{@new_resource} you have specified a status command, running..")
 
             begin
-              if shell_out!(@new_resource.status_command) == 0
+              if shell_out_with_systems_locale!(@new_resource.status_command) == 0
                 @current_resource.running true
               end
             rescue

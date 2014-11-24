@@ -106,7 +106,7 @@ describe Chef::Provider::Service::Freebsd do
       end
 
       it "should run the services status command if one has been specified" do
-        expect(provider).to receive(:shell_out).with("/bin/chefhasmonkeypants status").and_return(status)
+        expect(provider).to receive(:shell_out_with_systems_locale).with("/bin/chefhasmonkeypants status").and_return(status)
         provider.determine_current_status!
       end
     end
@@ -119,18 +119,18 @@ describe Chef::Provider::Service::Freebsd do
       end
 
       it "should run '/etc/init.d/service_name status'" do
-        expect(provider).to receive(:shell_out).with("/usr/local/etc/rc.d/#{new_resource.service_name} status").and_return(status)
+        expect(provider).to receive(:shell_out_with_systems_locale).with("/usr/local/etc/rc.d/#{new_resource.service_name} status").and_return(status)
         provider.determine_current_status!
       end
 
       it "should set running to true if the status command returns 0" do
-        expect(provider).to receive(:shell_out).with("/usr/local/etc/rc.d/#{new_resource.service_name} status").and_return(status)
+        expect(provider).to receive(:shell_out_with_systems_locale).with("/usr/local/etc/rc.d/#{new_resource.service_name} status").and_return(status)
         provider.determine_current_status!
         expect(current_resource.running).to be true
       end
 
       it "should set running to false if the status command returns anything except 0" do
-        expect(provider).to receive(:shell_out).with("/usr/local/etc/rc.d/#{new_resource.service_name} status").and_raise(Mixlib::ShellOut::ShellCommandFailed)
+        expect(provider).to receive(:shell_out_with_systems_locale).with("/usr/local/etc/rc.d/#{new_resource.service_name} status").and_raise(Mixlib::ShellOut::ShellCommandFailed)
         provider.determine_current_status!
         expect(current_resource.running).to be false
       end
@@ -150,13 +150,13 @@ PS_SAMPLE
         node.automatic_attrs[:command] = {:ps => "ps -ax"}
       end
 
-      it "should shell_out! the node's ps command" do
-        expect(provider).to receive(:shell_out!).with(node[:command][:ps]).and_return(status)
+      it "should shell_out_with_systems_locale! the node's ps command" do
+        expect(provider).to receive(:shell_out_with_systems_locale!).with(node[:command][:ps]).and_return(status)
         provider.determine_current_status!
       end
 
       it "should read stdout of the ps command" do
-        allow(provider).to receive(:shell_out!).and_return(status)
+        allow(provider).to receive(:shell_out_with_systems_locale!).and_return(status)
         expect(stdout).to receive(:each_line).and_return(true)
         provider.determine_current_status!
       end
@@ -170,20 +170,20 @@ PS_SAMPLE
         end
 
         it "should set running to true" do
-          allow(provider).to receive(:shell_out!).and_return(status)
+          allow(provider).to receive(:shell_out_with_systems_locale!).and_return(status)
           provider.determine_current_status!
           expect(current_resource.running).to be_truthy
         end
       end
 
       it "should set running to false if the regex doesn't match" do
-        allow(provider).to receive(:shell_out!).and_return(status)
+        allow(provider).to receive(:shell_out_with_systems_locale!).and_return(status)
         provider.determine_current_status!
         expect(current_resource.running).to be_falsey
       end
 
       it "should set running to nil if ps fails" do
-        allow(provider).to receive(:shell_out!).and_raise(Mixlib::ShellOut::ShellCommandFailed)
+        allow(provider).to receive(:shell_out_with_systems_locale!).and_raise(Mixlib::ShellOut::ShellCommandFailed)
         provider.determine_current_status!
         expect(current_resource.running).to be_nil
         expect(provider.status_load_success).to be_nil
@@ -360,7 +360,7 @@ EOF
       end
 
       it "should not run rcvar" do
-        expect(provider).not_to receive(:shell_out!)
+        expect(provider).not_to receive(:shell_out_with_systems_locale!)
         provider.service_enable_variable_name
       end
 
@@ -378,7 +378,7 @@ EOF
 
       before do
         status = double(:stdout => rcvar_stdout, :exitstatus => 0)
-        allow(provider).to receive(:shell_out!).with("/usr/local/etc/rc.d/#{new_resource.service_name} rcvar").and_return(status)
+        allow(provider).to receive(:shell_out_with_systems_locale!).with("/usr/local/etc/rc.d/#{new_resource.service_name} rcvar").and_return(status)
       end
 
       describe "when rcvar returns foobar_enable" do

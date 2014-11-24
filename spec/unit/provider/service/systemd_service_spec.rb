@@ -86,25 +86,25 @@ describe Chef::Provider::Service::Systemd do
       end
 
       it "should run the services status command if one has been specified" do
-        allow(provider).to receive(:shell_out).and_return(shell_out_success)
+        allow(provider).to receive(:shell_out_with_systems_locale).and_return(shell_out_success)
         provider.load_current_resource
         expect(current_resource.running).to be true
       end
 
       it "should run the services status command if one has been specified and properly set status check state" do
-        allow(provider).to receive(:shell_out).with("/bin/chefhasmonkeypants status").and_return(shell_out_success)
+        allow(provider).to receive(:shell_out_with_systems_locale).with("/bin/chefhasmonkeypants status").and_return(shell_out_success)
         provider.load_current_resource
         expect(provider.status_check_success).to be true
       end
 
       it "should set running to false if a status command fails" do
-        allow(provider).to receive(:shell_out).and_return(shell_out_failure)
+        allow(provider).to receive(:shell_out_with_systems_locale).and_return(shell_out_failure)
         provider.load_current_resource
         expect(current_resource.running).to be false
       end
 
       it "should update state to indicate status check failed when a status command fails" do
-        allow(provider).to receive(:shell_out).and_return(shell_out_failure)
+        allow(provider).to receive(:shell_out_with_systems_locale).and_return(shell_out_failure)
         provider.load_current_resource
         expect(provider.status_check_success).to be false
       end
@@ -229,12 +229,12 @@ describe Chef::Provider::Service::Systemd do
         end
 
         it "should call '#{systemctl_path} enable service_name' to enable the service" do
-          expect(provider).to receive(:shell_out!).with("#{systemctl_path} enable #{service_name}").and_return(shell_out_success)
+          expect(provider).to receive(:shell_out_with_systems_locale!).with("#{systemctl_path} enable #{service_name}").and_return(shell_out_success)
           provider.enable_service
         end
 
         it "should call '#{systemctl_path} disable service_name' to disable the service" do
-          expect(provider).to receive(:shell_out!).with("#{systemctl_path} disable #{service_name}").and_return(shell_out_success)
+          expect(provider).to receive(:shell_out_with_systems_locale!).with("#{systemctl_path} disable #{service_name}").and_return(shell_out_success)
           provider.disable_service
         end
       end
@@ -247,12 +247,12 @@ describe Chef::Provider::Service::Systemd do
         end
 
         it "should return true if '#{systemctl_path} is-active service_name' returns 0" do
-          expect(provider).to receive(:shell_out).with("#{systemctl_path} is-active #{service_name} --quiet").and_return(shell_out_success)
+          expect(provider).to receive(:shell_out_with_systems_locale).with("#{systemctl_path} is-active #{service_name} --quiet").and_return(shell_out_success)
           expect(provider.is_active?).to be true
         end
 
         it "should return false if '#{systemctl_path} is-active service_name' returns anything except 0" do
-          expect(provider).to receive(:shell_out).with("#{systemctl_path} is-active #{service_name} --quiet").and_return(shell_out_failure)
+          expect(provider).to receive(:shell_out_with_systems_locale).with("#{systemctl_path} is-active #{service_name} --quiet").and_return(shell_out_failure)
           expect(provider.is_active?).to be false
         end
       end
@@ -265,12 +265,12 @@ describe Chef::Provider::Service::Systemd do
         end
 
         it "should return true if '#{systemctl_path} is-enabled service_name' returns 0" do
-          expect(provider).to receive(:shell_out).with("#{systemctl_path} is-enabled #{service_name} --quiet").and_return(shell_out_success)
+          expect(provider).to receive(:shell_out_with_systems_locale).with("#{systemctl_path} is-enabled #{service_name} --quiet").and_return(shell_out_success)
           expect(provider.is_enabled?).to be true
         end
 
         it "should return false if '#{systemctl_path} is-enabled service_name' returns anything except 0" do
-          expect(provider).to receive(:shell_out).with("#{systemctl_path} is-enabled #{service_name} --quiet").and_return(shell_out_failure)
+          expect(provider).to receive(:shell_out_with_systems_locale).with("#{systemctl_path} is-enabled #{service_name} --quiet").and_return(shell_out_failure)
           expect(provider.is_enabled?).to be false
         end
       end

@@ -31,7 +31,7 @@ describe Chef::Provider::Service::Gentoo do
     @provider = Chef::Provider::Service::Gentoo.new(@new_resource, @run_context)
     allow(Chef::Resource::Service).to receive(:new).and_return(@current_resource)
     @status = double("Status", :exitstatus => 0, :stdout => @stdout)
-    allow(@provider).to receive(:shell_out).and_return(@status)
+    allow(@provider).to receive(:shell_out_with_systems_locale).and_return(@status)
     allow(File).to receive(:exists?).with("/etc/init.d/chef").and_return(true)
     allow(File).to receive(:exists?).with("/sbin/rc-update").and_return(true)
     allow(File).to receive(:exists?).with("/etc/runlevels/default/chef").and_return(false)
@@ -128,14 +128,14 @@ describe Chef::Provider::Service::Gentoo do
 
     describe Chef::Provider::Service::Gentoo, "enable_service" do
       it "should call rc-update add *service* default" do
-        expect(@provider).to receive(:shell_out!).with("/sbin/rc-update add chef default")
+        expect(@provider).to receive(:shell_out_with_systems_locale!).with("/sbin/rc-update add chef default")
         @provider.enable_service()
       end
     end
 
     describe Chef::Provider::Service::Gentoo, "disable_service" do
       it "should call rc-update del *service* default" do
-        expect(@provider).to receive(:shell_out!).with("/sbin/rc-update del chef default")
+        expect(@provider).to receive(:shell_out_with_systems_locale!).with("/sbin/rc-update del chef default")
         @provider.disable_service()
       end
     end

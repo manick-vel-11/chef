@@ -46,12 +46,12 @@ class Chef
         end
 
         def enable_service
-          shell_out!("#{default_init_command} clear #{@new_resource.service_name}") if @maintenance
-          shell_out!("#{default_init_command} enable -s #{@new_resource.service_name}")
+          shell_out_with_systems_locale!("#{default_init_command} clear #{@new_resource.service_name}") if @maintenance
+          shell_out_with_systems_locale!("#{default_init_command} enable -s #{@new_resource.service_name}")
         end
 
         def disable_service
-          shell_out!("#{default_init_command} disable -s #{@new_resource.service_name}")
+          shell_out_with_systems_locale!("#{default_init_command} disable -s #{@new_resource.service_name}")
         end
 
         alias_method :stop_service, :disable_service
@@ -68,7 +68,7 @@ class Chef
         end
 
         def service_status
-          status = shell_out!("#{@status_command} #{@current_resource.service_name}", :returns => [0, 1])
+          status = shell_out_with_systems_locale!("#{@status_command} #{@current_resource.service_name}", :returns => [0, 1])
           status.stdout.each_line do |line|
             case line
             when /state\s+online/

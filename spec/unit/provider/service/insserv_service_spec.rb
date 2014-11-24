@@ -30,7 +30,7 @@ describe Chef::Provider::Service::Insserv do
 
     @provider = Chef::Provider::Service::Insserv.new(@new_resource, @run_context)
     @status = double("Process::Status mock", :exitstatus => 0, :stdout => "")
-    allow(@provider).to receive(:shell_out!).and_return(@status)
+    allow(@provider).to receive(:shell_out_with_systems_locale!).and_return(@status)
   end
 
   describe "load_current_resource" do
@@ -60,15 +60,15 @@ describe Chef::Provider::Service::Insserv do
 
   describe "enable_service" do
     it "should call insserv and create the default links" do
-      expect(@provider).to receive(:shell_out!).with("/sbin/insserv -r -f #{@new_resource.service_name}")
-      expect(@provider).to receive(:shell_out!).with("/sbin/insserv -d -f #{@new_resource.service_name}")
+      expect(@provider).to receive(:shell_out_with_systems_locale!).with("/sbin/insserv -r -f #{@new_resource.service_name}")
+      expect(@provider).to receive(:shell_out_with_systems_locale!).with("/sbin/insserv -d -f #{@new_resource.service_name}")
       @provider.enable_service
     end
   end
 
   describe "disable_service" do
     it "should call insserv and remove the links" do
-      expect(@provider).to receive(:shell_out!).with("/sbin/insserv -r -f #{@new_resource.service_name}")
+      expect(@provider).to receive(:shell_out_with_systems_locale!).with("/sbin/insserv -r -f #{@new_resource.service_name}")
       @provider.disable_service
     end
   end

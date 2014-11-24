@@ -43,7 +43,7 @@ describe Chef::Provider::Service::Arch, "load_current_resource" do
 
   describe "when first created" do
     it "should set the current resources service name to the new resources service name" do
-      allow(@provider).to receive(:shell_out).and_return(OpenStruct.new(:exitstatus => 0, :stdout => ""))
+      allow(@provider).to receive(:shell_out_with_systems_locale).and_return(OpenStruct.new(:exitstatus => 0, :stdout => ""))
       @provider.load_current_resource
       expect(@provider.current_resource.service_name).to eq('chef')
     end
@@ -55,24 +55,24 @@ describe Chef::Provider::Service::Arch, "load_current_resource" do
     end
 
     it "should run '/etc/rc.d/service_name status'" do
-      expect(@provider).to receive(:shell_out).with("/etc/rc.d/chef status").and_return(OpenStruct.new(:exitstatus => 0))
+      expect(@provider).to receive(:shell_out_with_systems_locale).with("/etc/rc.d/chef status").and_return(OpenStruct.new(:exitstatus => 0))
       @provider.load_current_resource
     end
 
     it "should set running to true if the status command returns 0" do
-      allow(@provider).to receive(:shell_out).with("/etc/rc.d/chef status").and_return(OpenStruct.new(:exitstatus => 0))
+      allow(@provider).to receive(:shell_out_with_systems_locale).with("/etc/rc.d/chef status").and_return(OpenStruct.new(:exitstatus => 0))
       @provider.load_current_resource
       expect(@provider.current_resource.running).to be_truthy
     end
 
     it "should set running to false if the status command returns anything except 0" do
-      allow(@provider).to receive(:shell_out).with("/etc/rc.d/chef status").and_return(OpenStruct.new(:exitstatus => 1))
+      allow(@provider).to receive(:shell_out_with_systems_locale).with("/etc/rc.d/chef status").and_return(OpenStruct.new(:exitstatus => 1))
       @provider.load_current_resource
       expect(@provider.current_resource.running).to be_falsey
     end
 
     it "should set running to false if the status command raises" do
-      allow(@provider).to receive(:shell_out).with("/etc/rc.d/chef status").and_raise(Mixlib::ShellOut::ShellCommandFailed)
+      allow(@provider).to receive(:shell_out_with_systems_locale).with("/etc/rc.d/chef status").and_raise(Mixlib::ShellOut::ShellCommandFailed)
       @provider.load_current_resource
       expect(@provider.current_resource.running).to be_falsey
     end
@@ -85,7 +85,7 @@ describe Chef::Provider::Service::Arch, "load_current_resource" do
     end
 
     it "should run the services status command if one has been specified" do
-      expect(@provider).to receive(:shell_out).with("/etc/rc.d/chefhasmonkeypants status").and_return(OpenStruct.new(:exitstatus => 0))
+      expect(@provider).to receive(:shell_out_with_systems_locale).with("/etc/rc.d/chefhasmonkeypants status").and_return(OpenStruct.new(:exitstatus => 0))
       @provider.load_current_resource
     end
 
@@ -123,7 +123,7 @@ aj        7903  5016  0 21:26 pts/5    00:00:00 /bin/bash
 aj        8119  6041  0 21:34 pts/3    00:00:03 vi init_service_spec.rb
 DEFAULT_PS
       @status = double("Status", :exitstatus => 0, :stdout => @stdout)
-      allow(@provider).to receive(:shell_out!).and_return(@status)
+      allow(@provider).to receive(:shell_out_with_systems_locale!).and_return(@status)
 
       @node.automatic_attrs[:command] = {:ps => "ps -ef"}
     end
@@ -139,13 +139,13 @@ RUNNING_PS
     end
 
     it "determines the service is not running when it does not appear in ps" do
-      allow(@provider).to receive(:shell_out!).and_return(@status)
+      allow(@provider).to receive(:shell_out_with_systems_locale!).and_return(@status)
       @provider.load_current_resource
       expect(@provider.current_resource.running).to be_falsey
     end
 
     it "should raise an exception if ps fails" do
-      allow(@provider).to receive(:shell_out!).and_raise(Mixlib::ShellOut::ShellCommandFailed)
+      allow(@provider).to receive(:shell_out_with_systems_locale!).and_raise(Mixlib::ShellOut::ShellCommandFailed)
       @provider.load_current_resource
       @provider.action = :start
       @provider.define_resource_requirements

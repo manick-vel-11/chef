@@ -34,7 +34,7 @@ describe Chef::Provider::Service::Aix do
   describe "load current resource" do
     it "should create a current resource with the name of the new resource and determine the status" do
       @status = double("Status", :exitstatus => 0, :stdout => @stdout)
-      allow(@provider).to receive(:shell_out!).and_return(@status)
+      allow(@provider).to receive(:shell_out_with_systems_locale!).and_return(@status)
 
       expect(Chef::Resource::Service).to receive(:new).and_return(@current_resource)
       expect(@current_resource).to receive(:service_name).with("chef")
@@ -51,7 +51,7 @@ describe Chef::Provider::Service::Aix do
       end
 
       it "current resource is running" do
-        expect(@provider).to receive(:shell_out!).with("lssrc -a | grep -w chef").and_return(@status)
+        expect(@provider).to receive(:shell_out_with_systems_locale!).with("lssrc -a | grep -w chef").and_return(@status)
         expect(@provider).to receive(:is_resource_group?).with(["chef chef 12345 active"])
 
         @provider.load_current_resource
@@ -65,7 +65,7 @@ describe Chef::Provider::Service::Aix do
       end
 
       it "current resource is not running" do
-        expect(@provider).to receive(:shell_out!).with("lssrc -a | grep -w chef").and_return(@status)
+        expect(@provider).to receive(:shell_out_with_systems_locale!).with("lssrc -a | grep -w chef").and_return(@status)
         expect(@provider).to receive(:is_resource_group?).with(["chef chef inoperative"])
 
         @provider.load_current_resource
@@ -81,7 +81,7 @@ describe Chef::Provider::Service::Aix do
       end
 
       it "service is a group" do
-        expect(@provider).to receive(:shell_out!).with("lssrc -a | grep -w chef").and_return(@status)
+        expect(@provider).to receive(:shell_out_with_systems_locale!).with("lssrc -a | grep -w chef").and_return(@status)
         @provider.load_current_resource
         expect(@provider.instance_eval("@is_resource_group")).to be_truthy
       end
@@ -93,7 +93,7 @@ describe Chef::Provider::Service::Aix do
       end
 
       it "service is a group" do
-        expect(@provider).to receive(:shell_out!).with("lssrc -a | grep -w chef").and_return(@status)
+        expect(@provider).to receive(:shell_out_with_systems_locale!).with("lssrc -a | grep -w chef").and_return(@status)
         @provider.load_current_resource
         expect(@provider.instance_eval("@is_resource_group")).to be_truthy
       end
@@ -105,7 +105,7 @@ describe Chef::Provider::Service::Aix do
       end
 
       it "service is a subsystem" do
-        expect(@provider).to receive(:shell_out!).with("lssrc -a | grep -w chef").and_return(@status)
+        expect(@provider).to receive(:shell_out_with_systems_locale!).with("lssrc -a | grep -w chef").and_return(@status)
         @provider.load_current_resource
         expect(@provider.instance_eval("@is_resource_group")).to be_falsey
       end
@@ -119,13 +119,13 @@ describe Chef::Provider::Service::Aix do
 
     it "should call the start command for groups" do
       @provider.instance_eval('@is_resource_group = true')
-      expect(@provider).to receive(:shell_out!).with("startsrc -g #{@new_resource.service_name}")
+      expect(@provider).to receive(:shell_out_with_systems_locale!).with("startsrc -g #{@new_resource.service_name}")
 
       @provider.start_service
     end
 
     it "should call the start command for subsystem" do
-      expect(@provider).to receive(:shell_out!).with("startsrc -s #{@new_resource.service_name}")
+      expect(@provider).to receive(:shell_out_with_systems_locale!).with("startsrc -s #{@new_resource.service_name}")
 
       @provider.start_service
     end
@@ -138,13 +138,13 @@ describe Chef::Provider::Service::Aix do
 
     it "should call the stop command for groups" do
       @provider.instance_eval('@is_resource_group = true')
-      expect(@provider).to receive(:shell_out!).with("stopsrc -g #{@new_resource.service_name}")
+      expect(@provider).to receive(:shell_out_with_systems_locale!).with("stopsrc -g #{@new_resource.service_name}")
 
       @provider.stop_service
     end
 
     it "should call the stop command for subsystem" do
-      expect(@provider).to receive(:shell_out!).with("stopsrc -s #{@new_resource.service_name}")
+      expect(@provider).to receive(:shell_out_with_systems_locale!).with("stopsrc -s #{@new_resource.service_name}")
 
       @provider.stop_service
     end
@@ -157,13 +157,13 @@ describe Chef::Provider::Service::Aix do
 
     it "should call the reload command for groups" do
       @provider.instance_eval('@is_resource_group = true')
-      expect(@provider).to receive(:shell_out!).with("refresh -g #{@new_resource.service_name}")
+      expect(@provider).to receive(:shell_out_with_systems_locale!).with("refresh -g #{@new_resource.service_name}")
 
       @provider.reload_service
     end
 
     it "should call the reload command for subsystem" do
-      expect(@provider).to receive(:shell_out!).with("refresh -s #{@new_resource.service_name}")
+      expect(@provider).to receive(:shell_out_with_systems_locale!).with("refresh -s #{@new_resource.service_name}")
 
       @provider.reload_service
     end

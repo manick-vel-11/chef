@@ -61,15 +61,15 @@ XML
     ["redis-server", "io.redis.redis-server"].each do |service_name|
       before do
         allow(Dir).to receive(:glob).and_return(["/Users/igor/Library/LaunchAgents/io.redis.redis-server.plist"], [])
-        allow(provider).to receive(:shell_out!).
+        allow(provider).to receive(:shell_out_with_systems_locale!).
                  with("launchctl list", {:group => 1001, :user => 101}).
                  and_return(double("Status", :stdout => launchctl_stdout))
-        allow(provider).to receive(:shell_out).
+        allow(provider).to receive(:shell_out_with_systems_locale).
                  with(/launchctl list /,
                       {:group => nil, :user => nil}).
                  and_return(double("Status",
                                  :stdout => launchctl_stdout, :exitstatus => 0))
-        allow(provider).to receive(:shell_out!).
+        allow(provider).to receive(:shell_out_with_systems_locale!).
                  with(/plutil -convert xml1 -o/).
                  and_return(double("Status", :stdout => plutil_stdout))
 
@@ -96,7 +96,7 @@ XML
 
             before do
               allow(Dir).to receive(:glob).and_return([])
-              allow(provider).to receive(:shell_out!).
+              allow(provider).to receive(:shell_out_with_systems_locale!).
                        with(/plutil -convert xml1 -o/).
                        and_raise(Mixlib::ShellOut::ShellCommandFailed)
             end

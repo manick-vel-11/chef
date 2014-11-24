@@ -169,19 +169,19 @@ describe Chef::Provider::Service::Upstart do
       end
 
       it "should run the services status command if one has been specified" do
-        allow(@provider).to receive(:shell_out!).with("/bin/chefhasmonkeypants status").and_return(0)
+        allow(@provider).to receive(:shell_out_with_systems_locale!).with("/bin/chefhasmonkeypants status").and_return(0)
         expect(@current_resource).to receive(:running).with(true)
         @provider.load_current_resource
       end
 
       it "should track state when the user-provided status command fails" do
-        allow(@provider).to receive(:shell_out!).and_raise(Errno::ENOENT)
+        allow(@provider).to receive(:shell_out_with_systems_locale!).and_raise(Errno::ENOENT)
         @provider.load_current_resource
         expect(@provider.instance_variable_get("@command_success")).to eq(false)
       end
 
       it "should set running to false if it catches a Chef::Exceptions::Exec when using a status command" do
-        allow(@provider).to receive(:shell_out!).and_raise(Errno::ENOENT)
+        allow(@provider).to receive(:shell_out_with_systems_locale!).and_raise(Errno::ENOENT)
         expect(@current_resource).to receive(:running).with(false)
         @provider.load_current_resource
       end

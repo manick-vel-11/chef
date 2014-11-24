@@ -38,7 +38,7 @@ aj        7903  5016  0 21:26 pts/5    00:00:00 /bin/bash
 aj        8119  6041  0 21:34 pts/3    00:00:03 vi init_service_spec.rb
 PS
     @status = double("Status", :exitstatus => 0, :stdout => @stdout)
-    allow(@provider).to receive(:shell_out!).and_return(@status)
+    allow(@provider).to receive(:shell_out_with_systems_locale!).and_return(@status)
   end
 
   it "should create a current resource with the name of the new resource" do
@@ -57,25 +57,25 @@ PS
     end
 
     it "should run '/usr/sbin/invoke-rc.d service_name status'" do
-      expect(@provider).to receive(:shell_out).with("/usr/sbin/invoke-rc.d #{@current_resource.service_name} status").and_return(@status)
+      expect(@provider).to receive(:shell_out_with_systems_locale).with("/usr/sbin/invoke-rc.d #{@current_resource.service_name} status").and_return(@status)
       @provider.load_current_resource
     end
 
     it "should set running to true if the status command returns 0" do
-      allow(@provider).to receive(:shell_out).with("/usr/sbin/invoke-rc.d #{@current_resource.service_name} status").and_return(@status)
+      allow(@provider).to receive(:shell_out_with_systems_locale).with("/usr/sbin/invoke-rc.d #{@current_resource.service_name} status").and_return(@status)
       @provider.load_current_resource
       expect(@current_resource.running).to be_truthy
     end
 
     it "should set running to false if the status command returns anything except 0" do
       allow(@status).to receive(:exitstatus).and_return(1)
-      allow(@provider).to receive(:shell_out).with("/usr/sbin/invoke-rc.d #{@current_resource.service_name} status").and_return(@status)
+      allow(@provider).to receive(:shell_out_with_systems_locale).with("/usr/sbin/invoke-rc.d #{@current_resource.service_name} status").and_return(@status)
       @provider.load_current_resource
       expect(@current_resource.running).to be_falsey
     end
 
     it "should set running to false if the status command raises" do
-      allow(@provider).to receive(:shell_out).with("/usr/sbin/invoke-rc.d #{@current_resource.service_name} status").and_raise(Mixlib::ShellOut::ShellCommandFailed)
+      allow(@provider).to receive(:shell_out_with_systems_locale).with("/usr/sbin/invoke-rc.d #{@current_resource.service_name} status").and_raise(Mixlib::ShellOut::ShellCommandFailed)
       @provider.load_current_resource
       expect(@current_resource.running).to be_falsey
     end
@@ -87,7 +87,7 @@ PS
     end
 
     it "should run the services status command if one has been specified" do
-      expect(@provider).to receive(:shell_out).with("/usr/sbin/invoke-rc.d chefhasmonkeypants status").and_return(@status)
+      expect(@provider).to receive(:shell_out_with_systems_locale).with("/usr/sbin/invoke-rc.d chefhasmonkeypants status").and_return(@status)
       @provider.load_current_resource
     end
 
@@ -111,9 +111,9 @@ PS
   end
 
   describe "when we have a 'ps' attribute" do
-    it "should shell_out! the node's ps command" do
+    it "should shell_out_with_systems_locale! the node's ps command" do
       @status = double("Status", :exitstatus => 0, :stdout => @stdout)
-      expect(@provider).to receive(:shell_out!).with(@node[:command][:ps]).and_return(@status)
+      expect(@provider).to receive(:shell_out_with_systems_locale!).with(@node[:command][:ps]).and_return(@status)
       @provider.load_current_resource
     end
 
@@ -123,20 +123,20 @@ aj        7842  5057  0 21:26 pts/2    00:00:06 chef
 aj        7842  5057  0 21:26 pts/2    00:00:06 poos
 RUNNING_PS
       @status = double("Status", :exitstatus => 0, :stdout => @stdout)
-      expect(@provider).to receive(:shell_out!).and_return(@status)
+      expect(@provider).to receive(:shell_out_with_systems_locale!).and_return(@status)
       @provider.load_current_resource
       expect(@current_resource.running).to be_truthy
     end
 
     it "should set running to false if the regex doesn't match" do
       @status = double("Status", :exitstatus => 0, :stdout => @stdout)
-      expect(@provider).to receive(:shell_out!).and_return(@status)
+      expect(@provider).to receive(:shell_out_with_systems_locale!).and_return(@status)
       @provider.load_current_resource
       expect(@current_resource.running).to be_falsey
     end
 
     it "should raise an exception if ps fails" do
-      allow(@provider).to receive(:shell_out!).and_raise(Mixlib::ShellOut::ShellCommandFailed)
+      allow(@provider).to receive(:shell_out_with_systems_locale!).and_raise(Mixlib::ShellOut::ShellCommandFailed)
       @provider.action = :start
       @provider.load_current_resource
       @provider.define_resource_requirements

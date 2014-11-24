@@ -48,12 +48,12 @@ class Chef
         end
 
         def enable_service()
-          shell_out!("/sbin/insserv -r -f #{new_resource.service_name}")
-          shell_out!("/sbin/insserv -d -f #{new_resource.service_name}")
+          shell_out_with_systems_locale!("/sbin/insserv -r -f #{new_resource.service_name}")
+          shell_out_with_systems_locale!("/sbin/insserv -d -f #{new_resource.service_name}")
         end
 
         def disable_service()
-          shell_out!("/sbin/insserv -r -f #{new_resource.service_name}")
+          shell_out_with_systems_locale!("/sbin/insserv -r -f #{new_resource.service_name}")
         end
       end
     end

@@ -63,7 +63,7 @@ class Chef
           super
 
           if ::File.exists?("/sbin/chkconfig")
-            chkconfig = shell_out!("/sbin/chkconfig --list #{@current_resource.service_name}", :returns => [0,1])
+            chkconfig = shell_out_with_systems_locale!("/sbin/chkconfig --list #{@current_resource.service_name}", :returns => [0,1])
             @current_resource.enabled(!!(chkconfig.stdout =~ CHKCONFIG_ON))
             @service_missing = !!(chkconfig.stderr =~ CHKCONFIG_MISSING)
           end
@@ -72,11 +72,11 @@ class Chef
         end
 
         def enable_service()
-          shell_out! "/sbin/chkconfig #{@new_resource.service_name} on"
+          shell_out_with_systems_locale! "/sbin/chkconfig #{@new_resource.service_name} on"
         end
 
         def disable_service()
-          shell_out! "/sbin/chkconfig #{@new_resource.service_name} off"
+          shell_out_with_systems_locale! "/sbin/chkconfig #{@new_resource.service_name} off"
         end
       end
     end
