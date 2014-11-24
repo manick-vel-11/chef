@@ -223,17 +223,15 @@ class Chef
 
         def upstart_state
           command = "/sbin/status #{@job}"
-          status = popen4(command) do |pid, stdin, stdout, stderr|
-            stdout.each_line do |line|
-              # rsyslog stop/waiting
-              # service goal/state
-              # OR
-              # rsyslog (stop) waiting
-              # service (goal) state
-              line =~ UPSTART_STATE_FORMAT
-              data = Regexp.last_match
-              return data[2]
-            end
+          status = shell_out_with_systems_locale(command).stdout.each_line do |line|
+            # rsyslog stop/waiting
+            # service goal/state
+            # OR
+            # rsyslog (stop) waiting
+            # service (goal) state
+            line =~ UPSTART_STATE_FORMAT
+            data = Regexp.last_match
+            return data[2]
           end
         end
 

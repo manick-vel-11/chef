@@ -67,12 +67,8 @@ describe Chef::Provider::Service::Upstart do
       @current_resource = Chef::Resource::Service.new("rsyslog")
       allow(Chef::Resource::Service).to receive(:new).and_return(@current_resource)
 
-      @status = double("Status", :exitstatus => 0)
-      allow(@provider).to receive(:popen4).and_return(@status)
-      @stdin = StringIO.new
-      @stdout = StringIO.new
-      @stderr = StringIO.new
-      @pid = double("PID")
+      @status = double("Status", :exitstatus => 0, :stdout => "")
+      allow(@provider).to receive(:shell_out_with_systems_locale).and_return(@status)
 
       allow(::File).to receive(:exists?).and_return(true)
       allow(::File).to receive(:open).and_return(true)
@@ -96,7 +92,7 @@ describe Chef::Provider::Service::Upstart do
     end
 
     it "should run '/sbin/status rsyslog'" do
-      expect(@provider).to receive(:popen4).with("/sbin/status rsyslog").and_return(@status)
+      expect(@provider).to receive(:shell_out_with_systems_locale).with("/sbin/status rsyslog").and_return(@status)
       @provider.load_current_resource
     end
 
@@ -105,15 +101,15 @@ describe Chef::Provider::Service::Upstart do
       end
 
       it "should set running to true if the status command returns 0" do
-        @stdout = StringIO.new("rsyslog start/running")
-        allow(@provider).to receive(:popen4).and_yield(@pid, @stdin, @stdout, @stderr).and_return(@status)
+        status = double("Status", :exitstatus => 0, :stdout => "rsyslog start/running")
+        allow(@provider).to receive(:shell_out_with_systems_locale).and_return(status)
         @provider.load_current_resource
         expect(@current_resource.running).to be_truthy
       end
 
       it "should set running to false if the status command returns anything except 0" do
-        @stdout = StringIO.new("rsyslog stop/waiting")
-        allow(@provider).to receive(:popen4).and_yield(@pid, @stdin, @stdout, @stderr).and_return(@status)
+        status = double("Status", :exitstatus => 0, :stdout => "rsyslog stop/waiting")
+        allow(@provider).to receive(:shell_out_with_systems_locale).and_return(status)
         @provider.load_current_resource
         expect(@current_resource.running).to be_falsey
       end
@@ -121,22 +117,22 @@ describe Chef::Provider::Service::Upstart do
 
     describe "when the status command uses the old format" do
       it "should set running to true if the status command returns 0" do
-        @stdout = StringIO.new("rsyslog (start) running, process 32225")
-        allow(@provider).to receive(:popen4).and_yield(@pid, @stdin, @stdout, @stderr).and_return(@status)
+        status = double("Status", :exitstatus => 0, :stdout => "rsyslog (start) running, process 32225")
+        allow(@provider).to receive(:shell_out_with_systems_locale).and_return(status)
         @provider.load_current_resource
         expect(@current_resource.running).to be_truthy
       end
 
       it "should set running to false if the status command returns anything except 0" do
-        @stdout = StringIO.new("rsyslog (stop) waiting")
-        allow(@provider).to receive(:popen4).and_yield(@pid, @stdin, @stdout, @stderr).and_return(@status)
+        status = double("Status", :exitstatus => 0, :stdout => "rsyslog (stop) waiting")
+        allow(@provider).to receive(:shell_out_with_systems_locale).and_return(status)
         @provider.load_current_resource
         expect(@current_resource.running).to be_falsey
       end
     end
 
     it "should set running to false if it catches a Chef::Exceptions::Exec" do
-      allow(@provider).to receive(:popen4).and_yield(@pid, @stdin, @stdout, @stderr).and_raise(Chef::Exceptions::Exec)
+      allow(@provider).to receive(:shell_out_with_systems_locale).and_raise(Chef::Exceptions::Exec)
       expect(@current_resource).to receive(:running).with(false)
       @provider.load_current_resource
     end
