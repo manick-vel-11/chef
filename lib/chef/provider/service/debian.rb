@@ -77,19 +77,17 @@ class Chef
         def get_priority
           priority = {}
 
-          @rcd_status = popen4("/usr/sbin/update-rc.d -n -f #{current_resource.service_name} remove") do |pid, stdin, stdout, stderr|
-
-            [stdout, stderr].each do |iop|
-              iop.each_line do |line|
-                if UPDATE_RC_D_PRIORITIES =~ line
-                  # priority[runlevel] = [ S|K, priority ]
-                  # S = Start, K = Kill
-                  # debian runlevels: 0 Halt, 1 Singleuser, 2 Multiuser, 3-5 == 2, 6 Reboot
-                  priority[$1] = [($2 == "S" ? :start : :stop), $3]
-                end
-                if line =~ UPDATE_RC_D_ENABLED_MATCHES
-                  enabled = true
-                end
+          @rcd_status = shell_out_with_systems_locale("/usr/sbin/update-rc.d -n -f #{current_resource.service_name} remove")
+          [@rcd_status.stdout, @rcd_status.stderr].each do |iop|
+            iop.each_line do |line|
+              if UPDATE_RC_D_PRIORITIES =~ line
+                # priority[runlevel] = [ S|K, priority ]
+                # S = Start, K = Kill
+                # debian runlevels: 0 Halt, 1 Singleuser, 2 Multiuser, 3-5 == 2, 6 Reboot
+                priority[$1] = [($2 == "S" ? :start : :stop), $3]
+              end
+              if line =~ UPDATE_RC_D_ENABLED_MATCHES
+                enabled = true
               end
             end
           end

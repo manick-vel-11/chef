@@ -30,8 +30,6 @@ describe Chef::Provider::Service::Debian do
 
     @current_resource = Chef::Resource::Service.new("chef")
     @provider.current_resource = @current_resource
-
-    @pid, @stdin, @stdout, @stderr = nil, nil, nil, nil
   end
 
   describe "load_current_resource" do
@@ -59,11 +57,9 @@ describe Chef::Provider::Service::Debian do
     /etc/rc6.d/K20chef
         UPDATE_RC_D_SUCCESS
 
-        @stdout = StringIO.new(result)
-        @stderr = StringIO.new
-        @status = double("Status", :exitstatus => 0, :stdout => @stdout)
+        @status = double("Status", :exitstatus => 0, :stdout => result, :stderr => "")
         allow(@provider).to receive(:shell_out!).and_return(@status)
-        allow(@provider).to receive(:popen4).and_yield(@pid, @stdin, @stdout, @stderr).and_return(@status)
+        allow(@provider).to receive(:shell_out_with_systems_locale).and_return(@status)
       end
 
       it "says the service is enabled" do
@@ -80,13 +76,10 @@ describe Chef::Provider::Service::Debian do
     context "when update-rc.d shows init isn't linked to rc*.d/" do
       before do
         allow(@provider).to receive(:assert_update_rcd_available)
-        @status = double("Status", :exitstatus => 0)
-        @stdout = StringIO.new(
-          " Removing any system startup links for /etc/init.d/chef ...")
-        @stderr = StringIO.new
-        @status = double("Status", :exitstatus => 0, :stdout => @stdout)
+        stdout = " Removing any system startup links for /etc/init.d/chef ..."
+        @status = double("Status", :exitstatus => 0, :stdout => stdout, :stderr => "")
         allow(@provider).to receive(:shell_out!).and_return(@status)
-        allow(@provider).to receive(:popen4).and_yield(@pid, @stdin, @stdout, @stderr).and_return(@status)
+        allow(@provider).to receive(:shell_out_with_systems_locale).and_return(@status)
       end
 
       it "says the service is disabled" do
@@ -103,7 +96,7 @@ describe Chef::Provider::Service::Debian do
     context "when update-rc.d fails" do
       before do
         @status = double("Status", :exitstatus => -1)
-        allow(@provider).to receive(:popen4).and_return(@status)
+        allow(@provider).to receive(:shell_out_with_systems_locale).and_return(@status)
       end
 
       it "raises an error" do
@@ -198,11 +191,11 @@ insserv: dryrun, not creating .depend.boot, .depend.start, and .depend.stop
           before do
             allow(@provider).to receive(:assert_update_rcd_available)
 
-            @stdout = StringIO.new(expected_results["linked"]["stdout"])
-            @stderr = StringIO.new(expected_results["linked"]["stderr"])
-            @status = double("Status", :exitstatus => 0, :stdout => @stdout)
+            stdout = expected_results["linked"]["stdout"]
+            stderr = expected_results["linked"]["stderr"]
+            @status = double("Status", :exitstatus => 0, :stdout => stdout, :stderr => stderr)
             allow(@provider).to receive(:shell_out!).and_return(@status)
-            allow(@provider).to receive(:popen4).and_yield(@pid, @stdin, @stdout, @stderr).and_return(@status)
+            allow(@provider).to receive(:shell_out_with_systems_locale).and_return(@status)
           end
 
           it "says the service is enabled" do
@@ -224,11 +217,12 @@ insserv: dryrun, not creating .depend.boot, .depend.start, and .depend.stop
         context "when update-rc.d shows init isn't linked to rc*.d/" do
           before do
             allow(@provider).to receive(:assert_update_rcd_available)
-            @stdout = StringIO.new(expected_results["not linked"]["stdout"])
-            @stderr = StringIO.new(expected_results["not linked"]["stderr"])
-            @status = double("Status", :exitstatus => 0, :stdout => @stdout)
+            stderr = expected_results["not linked"]["stderr"]
+            stdout = expected_results["not linked"]["stdout"]
+
+            @status = double("Status", :exitstatus => 0, :stdout => stdout, :stderr => stderr)
             allow(@provider).to receive(:shell_out!).and_return(@status)
-            allow(@provider).to receive(:popen4).and_yield(@pid, @stdin, @stdout, @stderr).and_return(@status)
+            allow(@provider).to receive(:shell_out_with_systems_locale).and_return(@status)
           end
 
           it "says the service is disabled" do
