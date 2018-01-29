@@ -19,15 +19,15 @@
 
 require "spec_helper"
 
-describe Chef::Resource::Env do
+describe Chef::Resource::WindowsEnv do
 
   before(:each) do
-    @resource = Chef::Resource::Env.new("FOO")
+    @resource = Chef::Resource::WindowsEnv.new("FOO")
   end
 
-  it "creates a new Chef::Resource::Env" do
+  it "creates a new Chef::Resource::WindowsEnv" do
     expect(@resource).to be_a_kind_of(Chef::Resource)
-    expect(@resource).to be_a_kind_of(Chef::Resource::Env)
+    expect(@resource).to be_a_kind_of(Chef::Resource::WindowsEnv)
   end
 
   it "has a name" do
