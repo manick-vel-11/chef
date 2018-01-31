@@ -75,10 +75,12 @@ describe Chef::Resource::WindowsTask do
   end
 
   context "when random_delay is passed" do
-    it "raises error if frequency is `:once`" do
+    # changed this sepc since random_delay property is valid with it frequency :once
+    it "not raises error if frequency is `:once`" do
       resource.frequency :once
       resource.random_delay "20"
-      expect { resource.after_created }.to raise_error(ArgumentError, "`random_delay` property is supported only for frequency :minute, :hourly, :daily, :weekly and :monthly")
+      resource.start_time "15:00"
+      expect { resource.after_created }.to_not raise_error(ArgumentError, "`random_delay` property is supported only for frequency :once, :minute, :hourly, :daily, :weekly and :monthly")
     end
 
     it "raises error for invalid random_delay" do
@@ -93,29 +95,29 @@ describe Chef::Resource::WindowsTask do
       expect { resource.after_created }.to raise_error(ArgumentError, "Invalid value passed for `random_delay`. Please pass seconds as an Integer (e.g. 60) or a String with numeric values only (e.g. '60').")
     end
 
-    it "converts seconds String into iso8601 duration format" do
+    it "converts '60' seconds into integer 1 minute format" do
       resource.frequency :monthly
       resource.random_delay "60"
       resource.after_created
-      expect(resource.random_delay).to eq("PT60S")
+      expect(resource.random_delay).to eq(1)
     end
 
-    it "converts seconds Integer into iso8601 duration format" do
+    it "converts 60 Integer into integer 1 minute format" do
       resource.frequency :monthly
       resource.random_delay 60
       resource.after_created
-      expect(resource.random_delay).to eq("PT60S")
+      expect(resource.random_delay).to eq(1)
     end
 
     it "raises error that random_delay is not supported" do
-      expect { resource.send(:validate_random_delay, 60, :on_idle) }.to raise_error(ArgumentError, "`random_delay` property is supported only for frequency :minute, :hourly, :daily, :weekly and :monthly")
+      expect { resource.send(:validate_random_delay, 60, :on_idle) }.to raise_error(ArgumentError, "`random_delay` property is supported only for frequency :once, :minute, :hourly, :daily, :weekly and :monthly")
     end
   end
 
   context "when execution_time_limit isn't specified" do
-    it "sets the default value to PT72H" do
+    it "sets the default value to PT72H which get converted to minute as 4320" do
       resource.after_created
-      expect(resource.execution_time_limit).to eq("PT72H")
+      expect(resource.execution_time_limit).to eq(4320)
     end
   end
 
@@ -130,16 +132,16 @@ describe Chef::Resource::WindowsTask do
       expect { resource.after_created }.to raise_error(ArgumentError, "Invalid value passed for `execution_time_limit`. Please pass seconds as an Integer (e.g. 60) or a String with numeric values only (e.g. '60').")
     end
 
-    it "converts seconds Integer into iso8601 format" do
+    it "converts seconds Integer into integer minute format" do
       resource.execution_time_limit 60
       resource.after_created
-      expect(resource.execution_time_limit).to eq("PT60S")
+      expect(resource.execution_time_limit).to eq(1)
     end
 
-    it "converts seconds String into iso8601 format" do
+    it "converts seconds String into integer minute format" do
       resource.execution_time_limit "60"
       resource.after_created
-      expect(resource.execution_time_limit).to eq("PT60S")
+      expect(resource.execution_time_limit).to eq(1)
     end
   end
 
@@ -235,19 +237,19 @@ describe Chef::Resource::WindowsTask do
 
   context "#validate_create_day" do
     it "raises error if frequency is not :weekly or :monthly" do
-      expect  { resource.send(:validate_create_day, "Mon", :once) }.to raise_error("day property is only valid for tasks that run monthly or weekly")
+      expect  { resource.send(:validate_create_day, "Mon", :once,  1) }.to raise_error("day property is only valid for tasks that run monthly or weekly")
     end
 
     it "accepts a valid single day" do
-      expect  { resource.send(:validate_create_day, "Mon", :weekly) }.not_to raise_error
+      expect  { resource.send(:validate_create_day, "Mon", :weekly, 1) }.not_to raise_error
     end
 
     it "accepts a comma separated list of valid days" do
-      expect  { resource.send(:validate_create_day, "Mon, tue, THU", :weekly) }.not_to raise_error
+      expect  { resource.send(:validate_create_day, "Mon, tue, THU", :weekly, 1) }.not_to raise_error
     end
 
     it "raises error for invalid day value" do
-      expect  { resource.send(:validate_create_day, "xyz", :weekly) }.to raise_error(ArgumentError, "day property invalid. Only valid values are: MON, TUE, WED, THU, FRI, SAT, SUN and *. Multiple values must be separated by a comma.")
+      expect  { resource.send(:validate_create_day, "xyz", :weekly, 1) }.to raise_error(ArgumentError, "day property invalid. Only valid values are: MON, TUE, WED, THU, FRI, SAT, SUN, *. Multiple values must be separated by a comma.")
     end
   end
 
@@ -265,7 +267,7 @@ describe Chef::Resource::WindowsTask do
     end
 
     it "raises error for invalid month value" do
-      expect  { resource.send(:validate_create_months, "xyz", :monthly) }.to raise_error(ArgumentError, "months property invalid. Only valid values are: JAN, FEB, MAR, APR, MAY, JUN, JUL, AUG, SEP, OCT, NOV, DEC and *. Multiple values must be separated by a comma.")
+      expect  { resource.send(:validate_create_months, "xyz", :monthly) }.to raise_error(ArgumentError, "months property invalid. Only valid values are: JAN, FEB, MAR, APR, MAY, JUN, JUL, AUG, SEP, OCT, NOV, DEC, *. Multiple values must be separated by a comma.")
     end
   end
 
