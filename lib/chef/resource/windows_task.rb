@@ -17,6 +17,7 @@
 #
 
 require "chef/resource"
+require 'pry'
 
 class Chef
   class Resource
@@ -57,14 +58,16 @@ class Chef
       property :idle_time, Integer
       property :random_delay, [String, Integer]
       property :execution_time_limit, [String, Integer], default: "PT72H" # 72 hours in ISO8601 duration format
+      property :minutes_duration, [String, Integer]
+      property :minutes_interval, [String, Integer]
 
-      attr_accessor :exists, :status, :enabled
+      attr_accessor :exists, :task
 
       def after_created
         if random_delay
           validate_random_delay(random_delay, frequency)
-          duration = sec_to_dur(random_delay)
-          random_delay(duration)
+          #duration = sec_to_dur(random_delay)
+          random_delay(sec_to_min(random_delay))
         end
 
         if execution_time_limit
@@ -75,12 +78,13 @@ class Chef
           end
         end
 
-        validate_start_time(start_time, frequency)
+        validate_start_time(start_time, frequency) if start_time
         validate_start_day(start_day, frequency) if start_day
+        validate_frequency_monthly(frequency_modifier, months, day) if frequency == :monthly
         validate_user_and_password(user, password)
         validate_interactive_setting(interactive_enabled, password)
-        validate_create_frequency_modifier(frequency, frequency_modifier)
-        validate_create_day(day, frequency) if day
+        validate_create_frequency_modifier(frequency, frequency_modifier) if frequency_modifier
+        validate_create_day(day, frequency, frequency_modifier) if day
         validate_create_months(months, frequency) if months
         validate_idle_time(idle_time, frequency)
       end
@@ -94,8 +98,26 @@ class Chef
         false
       end
 
+      def validate_frequency_monthly(frequency_modifier, months, day)
+        if frequency_modifier != 1
+          if  frequency_modifier_includes_days_of_weeks?(frequency_modifier)
+            unless day
+              raise ArgumentError, "Please select day on which you want to run the task e.g. 'Mon, Tue'. Multiple values should be commas seprated."
+            end
+          end
+        end
+      end
+
+      def frequency_modifier_includes_days_of_weeks?(frequency_modifier)
+        frequency_modifier.split(',').each do |value|
+          return false unless %w(FIRST SECOND THIRD FOURTH LAST LASTDAY).include?(value.strip.upcase)
+        end
+        true
+      end
+
       def validate_random_delay(random_delay, frequency)
-        if [:once, :on_logon, :onstart, :on_idle, :none].include? frequency
+        #if [:once, :on_logon, :onstart, :on_idle, :none].include? frequency
+        if [:on_logon, :onstart, :on_idle, :none].include? frequency
           raise ArgumentError, "`random_delay` property is supported only for frequency :minute, :hourly, :daily, :weekly and :monthly"
         end
 
@@ -104,12 +126,15 @@ class Chef
 
       # @todo when we drop ruby 2.3 support this should be converted to .match?() instead of =~f
       def validate_start_day(start_day, frequency)
-        if [:once, :on_logon, :onstart, :on_idle, :none].include? frequency
+        #if start_day && [:once, :on_logon, :onstart, :on_idle, :none].include?(frequency)
+        if start_day && [:on_logon, :onstart, :on_idle, :none].include?(frequency)
           raise ArgumentError, "`start_day` property is not supported with frequency: #{frequency}"
         end
 
         # make sure the start_day is in MM/DD/YYYY format: http://rubular.com/r/cgjHemtWl5
-        raise ArgumentError, "`start_day` property must be in the MM/DD/YYYY format." unless /^(0[1-9]|1[012])[- \/.](0[1-9]|[12][0-9]|3[01])[- \/.](19|20)\d\d$/ =~ start_day
+        if start_day
+          raise ArgumentError, "`start_day` property must be in the MM/DD/YYYY format." unless /^(0[1-9]|1[012])[- \/.](0[1-9]|[12][0-9]|3[01])[- \/.](19|20)\d\d$/ =~ start_day
+        end
       end
 
       # @todo when we drop ruby 2.3 support this should be converted to .match?() instead of =~
@@ -118,7 +143,7 @@ class Chef
           raise ArgumentError, "`start_time` property is not supported with `frequency :none`" if frequency == :none
           raise ArgumentError, "`start_time` property must be in the HH:mm format (e.g. 6:20pm -> 18:20)." unless /^[0-2][0-9]:[0-5][0-9]$/ =~ start_time
         else
-          raise ArgumentError, "`start_time` needs to be provided with `frequency :once`" if frequency == :once
+          # raise ArgumentError, "`start_time` needs to be provided with frequency: `#{frequency}`"
         end
       end
 
@@ -163,25 +188,42 @@ class Chef
               raise ArgumentError, "frequency_modifier value #{frequency_modifier} is invalid. Valid values for :weekly frequency are 1 - 52."
             end
           when :monthly
-            unless ("1".."12").to_a.push("FIRST", "SECOND", "THIRD", "FOURTH", "LAST", "LASTDAY").include?(frequency_modifier.to_s.upcase)
+            unless ("1".."12").include?(frequency_modifier.to_s.upcase) || frequency_modifier_includes_days_of_weeks?(frequency_modifier)
               raise ArgumentError, "frequency_modifier value #{frequency_modifier} is invalid. Valid values for :monthly frequency are 1 - 12, 'FIRST', 'SECOND', 'THIRD', 'FOURTH', 'LAST', 'LASTDAY'."
             end
           end
         end
       end
 
-      def validate_create_day(day, frequency)
+      def validate_create_day(day, frequency, frequency_modifier)
         unless [:weekly, :monthly].include?(frequency)
           raise "day property is only valid for tasks that run monthly or weekly"
         end
         if day.is_a?(String) && day.to_i.to_s != day
           days = day.split(",")
-          days.each do |d|
-            unless ["mon", "tue", "wed", "thu", "fri", "sat", "sun", "*"].include?(d.strip.downcase)
-              raise ArgumentError, "day property invalid. Only valid values are: MON, TUE, WED, THU, FRI, SAT, SUN and *. Multiple values must be separated by a comma."
+          if days_includes_days_of_months?(days)
+            if frequency == :weekly
+              raise "day values 1-31 or last is only valid with frequency :monthly"
+            end
+
+            if frequency_modifier && frequency_modifier != 1
+              raise "Do not use frequency_modifier property when day values set as 1-31 or last"
+            end
+          else
+            days.each do |d|
+              unless ["mon", "tue", "wed", "thu", "fri", "sat", "sun", "*"].include?(d.strip.downcase)
+                raise ArgumentError, "day property invalid. Only valid values are: MON, TUE, WED, THU, FRI, SAT, SUN and *. Multiple values must be separated by a comma."
+              end
             end
           end
         end
+      end
+
+      def days_includes_days_of_months?(days)
+        days.each do |d|
+          return false unless (1..31).to_a.map(&:to_s).push("last").include?(d.to_s.strip.downcase)
+        end
+        true
       end
 
       def validate_create_months(months, frequency)
@@ -216,6 +258,9 @@ class Chef
         ISO8601::Duration.new(seconds.to_i).to_s
       end
 
+      def sec_to_min(seconds)
+        seconds.to_i/60
+      end
     end
   end
 end

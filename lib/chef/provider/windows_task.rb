@@ -20,120 +20,137 @@ require "chef/mixin/shell_out"
 require "rexml/document"
 require "iso8601"
 require "chef/mixin/powershell_out"
+require "chef/provider"
+require "win32/taskscheduler"
+require 'pry'
 
 class Chef
   class Provider
     class WindowsTask < Chef::Provider
       include Chef::Mixin::ShellOut
       include Chef::Mixin::PowershellOut
+      include Win32
 
       provides :windows_task
 
+      MONTHS = {
+        :JAN => TaskScheduler::JANUARY,
+        :FEB => TaskScheduler::FEBRUARY,
+        :MAR => TaskScheduler::MARCH,
+        :APR => TaskScheduler::APRIL,
+        :MAY => TaskScheduler::MAY,
+        :JUN => TaskScheduler::JUNE,
+        :JUL => TaskScheduler::JULY,
+        :AUG => TaskScheduler::AUGUST,
+        :SEP => TaskScheduler::SEPTEMBER,
+        :OCT => TaskScheduler::OCTOBER,
+        :NOV => TaskScheduler::NOVEMBER,
+        :DEC => TaskScheduler::DECEMBER
+      }
+
+      DAYS_OF_WEEK = { :MON => TaskScheduler::MONDAY,
+                       :TUE => TaskScheduler::TUESDAY,
+                       :WED => TaskScheduler::WEDNESDAY,
+                       :THU => TaskScheduler::THURSDAY,
+                       :FRI => TaskScheduler::FRIDAY,
+                       :SAT => TaskScheduler::SATURDAY,
+                       :SUN => TaskScheduler::SUNDAY }
+
+      WEEKS_OF_MONTH = {
+        :FIRST => TaskScheduler::FIRST_WEEK,
+        :SECOND => TaskScheduler::SECOND_WEEK,
+        :THIRD => TaskScheduler::THIRD_WEEK,
+        :FOURTH => TaskScheduler::FOURTH_WEEK
+#        :LAST => TaskScheduler::LAST_WEEK
+      }
+
+      DAYS_OF_MONTH = {
+        1 => TaskScheduler::TASK_FIRST,
+        2 => TaskScheduler::TASK_SECOND,
+        3 => TaskScheduler::TASK_THIRD,
+        4 => TaskScheduler::TASK_FOURTH,
+        5 => TaskScheduler::TASK_FIFTH,
+        6 => TaskScheduler::TASK_SIXTH,
+        7 => TaskScheduler::TASK_SEVENTH,
+        8 => TaskScheduler::TASK_EIGHTH,
+        9 => TaskScheduler::TASK_NINETH,
+        10 => TaskScheduler::TASK_TENTH,
+        11 => TaskScheduler::TASK_ELEVENTH,
+        12 => TaskScheduler::TASK_TWELFTH,
+        13 => TaskScheduler::TASK_THIRTEENTH,
+        14 => TaskScheduler::TASK_FOURTEENTH,
+        15 => TaskScheduler::TASK_FIFTEENTH,
+        16 => TaskScheduler::TASK_SIXTEENTH,
+        17 => TaskScheduler::TASK_SEVENTEENTH,
+        18 => TaskScheduler::TASK_EIGHTEENTH,
+        19 => TaskScheduler::TASK_NINETEENTH,
+        20 => TaskScheduler::TASK_TWENTIETH,
+        21 => TaskScheduler::TASK_TWENTY_FIRST,
+        22 => TaskScheduler::TASK_TWENTY_SECOND,
+        23 => TaskScheduler::TASK_TWENTY_THIRD,
+        24 => TaskScheduler::TASK_TWENTY_FOURTH,
+        25 => TaskScheduler::TASK_TWENTY_FIFTH,
+        26 => TaskScheduler::TASK_TWENTY_SIXTH,
+        27 => TaskScheduler::TASK_TWENTY_SEVENTH,
+        28 => TaskScheduler::TASK_TWENTY_EIGHTH,
+        29 => TaskScheduler::TASK_TWENTY_NINTH,
+        30 => TaskScheduler::TASK_THIRTYETH,
+        31 => TaskScheduler::TASK_THIRTY_FIRST,
+        :last => TaskScheduler::TASK_LAST
+      }
+
       def load_current_resource
-        self.current_resource = Chef::Resource::WindowsTask.new(new_resource.name)
-        pathed_task_name = new_resource.task_name.start_with?('\\') ? new_resource.task_name : "\\#{new_resource.task_name}"
+        @current_resource = Chef::Resource::WindowsTask.new(new_resource.name)
+        task = TaskScheduler.new
+        if task.exists?(new_resource.name)
+          @current_resource.exists = true
+          task.get_task(new_resource.name)
+          @current_resource.task = task
+          pathed_task_name = new_resource.task_name.start_with?('\\') ? new_resource.task_name : "\\#{new_resource.task_name}"
+          @current_resource.task_name(pathed_task_name)
+        else
+          @current_resource.exists = false
+        end
+        # task_hash = load_task_hash(pathed_task_name)
 
-        current_resource.task_name(pathed_task_name)
-        task_hash = load_task_hash(pathed_task_name)
-
-        set_current_resource(task_hash) if task_hash.respond_to?(:[]) && task_hash[:TaskName] == pathed_task_name
-        current_resource
-      end
-
-      def set_current_resource(task_hash)
-        current_resource.exists = true
-        current_resource.command(task_hash[:TaskToRun])
-        current_resource.cwd(task_hash[:StartIn]) unless task_hash[:StartIn] == "N/A"
-        current_resource.user(task_hash[:RunAsUser])
-        set_current_run_level task_hash[:run_level]
-        set_current_frequency task_hash
-        current_resource.day(task_hash[:day]) if task_hash[:day]
-        current_resource.months(task_hash[:months]) if task_hash[:months]
-        set_current_idle_time(task_hash[:idle_time]) if task_hash[:idle_time]
-        current_resource.random_delay(task_hash[:random_delay]) if task_hash[:random_delay]
-        # schtask sets execution_time_limit as PT72H by default
-        current_resource.execution_time_limit(task_hash[:execution_time_limit] || "PT72H")
-        current_resource.status = :running if task_hash[:Status] == "Running"
-        current_resource.enabled = true if task_hash[:ScheduledTaskState] == "Enabled"
-        current_resource.start_time = task_hash[:StartTime] if task_hash[:StartTime]
-        current_resource.start_day = task_hash[:StartDate] if task_hash[:StartDate]
-      end
-
-      # This method checks if task and command attributes exist since those two are mandatory attributes to create a schedules task.
-      def basic_validation
-        validate = []
-        validate << "Command" if new_resource.command.nil? || new_resource.command.empty?
-        validate << "Task Name" if new_resource.task_name.nil? || new_resource.task_name.empty?
-        return true if validate.empty?
-        raise Chef::Exceptions::ValidationFailed.new "Value for '#{validate.join(', ')}' option cannot be empty"
-      end
-
-      # get array of windows task resource attributes
-      def resource_attributes
-        %w{ command user run_level cwd frequency_modifier frequency idle_time random_delay execution_time_limit start_day start_time }
+        # set_current_resource(task_hash) if task_hash.respond_to?(:[]) && task_hash[:TaskName] == pathed_task_name
+        # current_resource
       end
 
       def action_create
         if current_resource.exists
-          Chef::Log.debug "#{new_resource} task exists"
-          if !(task_need_update? || new_resource.force)
+          Chef::Log.debug "#{new_resource} task exist."
+          unless (task_needs_update?(current_resource.task) || new_resource.force)
             Chef::Log.info "#{new_resource} task does not need updating and force is not specified - nothing to do"
             return
           end
-          # Setting the attributes of new_resource as current_resource.
-          # This is required to handle update scenarios when the user specifies
-          # only those attributes in the recipe which require update
-          resource_attributes.each do |attribute|
-            new_resource_attribute = new_resource.send(attribute)
-            current_resource_attribute = current_resource.send(attribute)
-            # We accept start_day in mm/dd/yyyy format only. Hence while copying the start_day from system to new_resource.start_day,
-            # we are converting from system date format to mm/dd/yyyy
-            current_resource_attribute = convert_system_date_to_mm_dd_yyyy(current_resource_attribute) if attribute == "start_day" && current_resource_attribute != "N/A"
-            # Convert start_time into 24hr time format
-            current_resource_attribute = DateTime.parse(current_resource_attribute).strftime("%H:%M") if attribute == "start_time" && current_resource_attribute != "N/A"
-            new_resource.send("#{attribute}=", current_resource_attribute ) if current_resource_attribute && new_resource_attribute.nil?
-          end
-        end
-        basic_validation
-        options = {}
-        options["F"] = "" if new_resource.force || task_need_update?
-        if schedule == :none
-          options["SC"] = :once
-          options["ST"] = "00:00"
-          options["SD"] = convert_user_date_to_system_date "12/12/2012"
-        else
-          options["SC"] = schedule
-          options["ST"] = new_resource.start_time unless new_resource.start_time.nil? || new_resource.start_time == "N/A"
-          options["SD"] = convert_user_date_to_system_date new_resource.start_day unless new_resource.start_day.nil? || new_resource.start_day == "N/A"
-        end
-        options["MO"] = new_resource.frequency_modifier if frequency_modifier_allowed
-        options["I"]  = new_resource.idle_time unless new_resource.idle_time.nil?
-        options["TR"] = new_resource.command
-        options["RU"] = new_resource.user
-        options["RP"] = new_resource.password if use_password?
-        options["RL"] = "HIGHEST" if new_resource.run_level == :highest
-        options["IT"] = "" if new_resource.interactive_enabled
-        options["D"] = new_resource.day if new_resource.day
-        options["M"] = new_resource.months unless new_resource.months.nil?
-        run_schtasks "CREATE", options
-        xml_options = []
-        xml_options << "cwd" if new_resource.cwd
-        xml_options << "random_delay" if new_resource.random_delay
-        xml_options << "execution_time_limit" if new_resource.execution_time_limit
 
-        converge_by("#{new_resource} task created") do
-          update_task_xml(xml_options) unless xml_options.empty?
+          # if start_day and start_time is not set by user current date and time will be set while updating any property
+          set_start_day_and_time
+          update_task(current_resource.task)
+        else
+          basic_validation
+          set_start_day_and_time
+          task = TaskScheduler.new
+          task.new_work_item(new_resource.name, trigger)
+          task.application_name = new_resource.command
+          task.configure_settings(config_settings)
+          task.configure_principals(principal_settings)
+          task.set_account_information(new_resource.user, new_resource.password) ## unless (new_resource.user.nil? || new_resource.user == 'SYSTEM') && new_resource.password.nil?
+          converge_by("#{new_resource} task created") do
+            task.activate(new_resource.name)
+          end
         end
       end
 
       def action_run
         if current_resource.exists
           Chef::Log.debug "#{new_resource} task exists"
-          if current_resource.status == :running
+          if current_resource.task.status == "running"
             Chef::Log.info "#{new_resource} task is currently running, skipping run"
           else
             converge_by("run scheduled task #{new_resource}") do
-              run_schtasks "RUN"
+              current_resource.task.run
             end
           end
         else
@@ -145,8 +162,10 @@ class Chef
         if current_resource.exists
           Chef::Log.debug "#{new_resource} task exists"
           converge_by("delete scheduled task #{new_resource}") do
+            ts = TaskScheduler.new
+            ts.delete(current_resource.name)
             # always need to force deletion
-            run_schtasks "DELETE", "F" => ""
+            # run_schtasks "DELETE", "F" => ""
           end
         else
           Chef::Log.warn "#{new_resource} task does not exist - nothing to do"
@@ -156,11 +175,12 @@ class Chef
       def action_end
         if current_resource.exists
           Chef::Log.debug "#{new_resource} task exists"
-          if current_resource.status != :running
+          if current_resource.task.status != "running"
             Chef::Log.debug "#{new_resource} is not running - nothing to do"
           else
             converge_by("#{new_resource} task ended") do
-              run_schtasks "END"
+              current_resource.task.stop
+              #run_schtasks "END"
             end
           end
         else
@@ -171,12 +191,13 @@ class Chef
       def action_enable
         if current_resource.exists
           Chef::Log.debug "#{new_resource} task exists"
-          if current_resource.enabled
-            Chef::Log.debug "#{new_resource} already enabled - nothing to do"
-          else
+          if current_resource.task.status == "not scheduled"
             converge_by("#{new_resource} task enabled") do
+              #TODO wind32-taskscheduler currently not having any method to handle this so using schtasks.exe here
               run_schtasks "CHANGE", "ENABLE" => ""
             end
+          else
+            Chef::Log.debug "#{new_resource} already enabled - nothing to do"
           end
         else
           Chef::Log.fatal "#{new_resource} task does not exist - nothing to do"
@@ -187,8 +208,9 @@ class Chef
       def action_disable
         if current_resource.exists
           Chef::Log.info "#{new_resource} task exists"
-          if current_resource.enabled
+          if ["ready", "running"].include?(current_resource.task.status)
             converge_by("#{new_resource} task disabled") do
+              #TODO: in win32-taskscheduler there is no method whcih disbales the task so currently calling disable with schtasks.exe
               run_schtasks "CHANGE", "DISABLE" => ""
             end
           else
@@ -200,6 +222,283 @@ class Chef
       end
 
       private
+
+      def set_start_day_and_time
+        unless new_resource.start_day
+          new_resource.start_day = Time.now.strftime("%m/%d/%Y")
+        end
+
+        unless new_resource.start_time
+          new_resource.start_time = Time.now.strftime("%H:%M")
+        end
+      end
+
+      def update_task(task)
+        converge_by("#{new_resource} task updated") do
+          task.application_name = new_resource.command
+          task.trigger = trigger
+          # TODO: Check update for execution time limit
+          task.max_run_time = new_resource.execution_time_limit.to_i * 1000
+          task.configure_settings(config_settings)
+          task.configure_principals(principal_settings)
+        end
+      end
+
+      def trigger
+        date = new_resource.start_day.split('/') if new_resource.start_day
+        time = new_resource.start_time.split(':') if new_resource.start_time
+        #TODO currently end_month, end_year and end_year needs to be set to 0. If not set win32-taskscheduler throwing nil into integer error.
+        trigger_hash = {}
+        trigger_hash = {
+          start_year: date.nil? ? 0 : date[2].to_i,
+          start_month: date.nil? ? 0 : date[0].to_i,
+          start_day: date.nil? ? 0 : date[1].to_i,
+          start_hour: time.nil? ? 0 : time[0].to_i,
+          start_minute: time.nil? ? 0 : time[1].to_i,
+          end_month: 0,
+          end_day: 0,
+          end_year: 0,
+          trigger_type: trigger_type,
+          type: type,
+          random_minutes_interval: new_resource.random_delay
+        }
+        if new_resource.frequency == :minute
+          trigger_hash[:minutes_interval] = new_resource.frequency_modifier
+        end
+
+        if new_resource.frequency == :hourly
+          minutes = convert_in_minutes(new_resource.frequency_modifier.to_i)
+          trigger_hash[:minutes_interval] = minutes
+        end
+
+        if new_resource.minutes_interval
+          trigger_hash[:minutes_interval] = new_resource.minutes_interval
+        end
+
+        if new_resource.minutes_duration
+          trigger_hash[:minutes_duration] = new_resource.minutes_duration
+        end
+
+        trigger_hash
+      end
+
+      def convert_in_minutes(frequency_modifier)
+        frequency_modifier * 60
+      end
+
+      #TODO : Try to optimize this method
+      # known issue : Since start_day and time is not mandatory while updating weekly frequency for which start_day is not mentioned by user idempotency
+      # is not gettting maintained as new_resource.start_day is nil and we fetch the day of week from start_day to set and its currently coming as nil and don't match with current_task
+      def task_needs_update?(task)
+        flag = false
+        current_task_trigger = task.trigger(0)
+        new_task_trigger = trigger
+
+        if new_resource.frequency == :on_idle
+          # Converting here new_resource.idle_time in seconds to compare
+          flag =  true if ISO8601::Duration.new(task.idle_settings[:idle_duration]) != ISO8601::Duration.new(new_resource.idle_time*60)
+        end
+
+        flag = true if start_day_updated?(current_task_trigger, new_task_trigger) == true ||
+        start_time_updated?(current_task_trigger, new_task_trigger) == true ||
+        current_task_trigger[:trigger_type] != new_task_trigger[:trigger_type] ||
+        current_task_trigger[:type] != new_task_trigger[:type] ||
+        current_task_trigger[:random_minutes_interval] != new_task_trigger[:random_minutes_interval] ||
+        current_task_trigger[:minutes_interval] != new_task_trigger[:minutes_interval] ||
+        task.account_information != new_resource.user ||
+        task.max_run_time != new_resource.execution_time_limit.to_i * 1000 ||
+        task.application_name != new_resource.command ||
+        task.principals[:run_level] != run_level
+
+        flag
+      end
+
+      def start_day_updated?(current_task_trigger, new_task_trigger)
+        if new_resource.start_day
+          return true if current_task_trigger[:start_year].to_i != new_task_trigger[:start_year] ||
+          current_task_trigger[:start_month].to_i != new_task_trigger[:start_month] ||
+          current_task_trigger[:start_day].to_i != new_task_trigger[:start_day]
+        else
+          false
+        end
+      end
+
+      def start_time_updated?(current_task_trigger, new_task_trigger)
+        if new_resource.start_time
+          return true if current_task_trigger[:start_hour].to_i != new_task_trigger[:start_hour] ||
+          current_task_trigger[:start_minute].to_i != new_task_trigger[:start_minute]
+        else
+          false
+        end
+      end
+
+      def find_task
+        ts = TaskScheduler.new
+        ts.activate(new_resource.name)
+        ts.trigger(0)
+      end
+
+      def trigger_type
+        case new_resource.frequency
+          when :once, :minute, :hourly
+            TaskScheduler::ONCE
+          when :daily
+            TaskScheduler::DAILY
+          when :weekly
+            TaskScheduler::WEEKLY
+          when :monthly
+            # If frequency modifier is set with frequency :monthly we are setting taskscheduler as monthlydow
+            # Ref https://msdn.microsoft.com/en-us/library/windows/desktop/aa382061(v=vs.85).aspx
+            if new_resource.frequency_modifier != 1
+              TaskScheduler::MONTHLYDOW
+            else
+              TaskScheduler::MONTHLYDATE
+            end
+          when :on_idle
+            TaskScheduler::ON_IDLE
+          when :onstart
+            TaskScheduler::AT_SYSTEMSTART
+          when :on_logon
+            TaskScheduler::AT_LOGON
+          else
+            #TODO
+          end
+      end
+
+      def type
+        if trigger_type == TaskScheduler::ONCE
+          { once: nil }
+        elsif trigger_type == TaskScheduler::DAILY
+          { days_interval: new_resource.frequency_modifier }
+        elsif trigger_type == TaskScheduler::WEEKLY
+          { weeks_interval: new_resource.frequency_modifier, days_of_week: days_of_week }
+        elsif trigger_type == TaskScheduler::MONTHLYDATE
+          { months: months_of_year, days: days_of_month }
+        elsif trigger_type == TaskScheduler::MONTHLYDOW
+          { months: months_of_year, days_of_week: days_of_week, weeks_of_month: weeks_of_month }
+        elsif trigger_type == TaskScheduler::ON_IDLE
+          # TODO: handle option for this trigger
+        elsif trigger_type == TaskScheduler::AT_LOGON
+          # TODO: handle option for this trigger
+        elsif trigger_type == TaskScheduler::AT_SYSTEMSTART
+          # TODO: handle option for this trigger
+        end
+      end
+
+      def weeks_of_month
+        weeks_of_month = []
+        if new_resource.frequency_modifier
+          weeks = new_resource.frequency_modifier.split(",")
+          weeks.each do |week|
+            weeks_of_month << WEEKS_OF_MONTH[week.strip.upcase.to_sym]
+          end
+          weeks_of_month.size > 1 ? weeks_of_month.inject(:|) : weeks_of_month[0]
+        end
+      end
+
+      # known issue : setting days of month last does not work coming acorss
+      # error WIN32OLERuntimeError: (in setting property `DaysOfMonth': )
+        # OLE error code:0 in <Unknown>
+        #   <No Description>
+        # HRESULT error code:0x8002000a
+        #   Out of present range.
+      def days_of_month
+        days_of_month = []
+        if new_resource.day
+          if (1..31).to_a.push("last").map(&:to_s).include?(new_resource.day[0].downcase)
+            days = new_resource.day.split(",")
+            days.each do |day|
+              if day.strip.downcase == "last"
+                days_of_month << DAYS_OF_MONTH[day.strip.downcase.to_sym]
+              else
+                days_of_month << DAYS_OF_MONTH[day.to_i]
+              end
+            end
+            days_of_month = days_of_month.size > 1 ? days_of_month.inject(:|) : days_of_month[0]
+          end
+        else
+          days_of_month = DAYS_OF_MONTH[1]
+        end
+        days_of_month
+      end
+
+      def days_of_week
+        if new_resource.day
+          days = new_resource.day.split(',').map(&:upcase)
+          week_days = []
+          if days.size > 1
+            days.each do |day|
+              day = day.strip.to_sym
+              week_days << DAYS_OF_WEEK[day]
+            end
+            week_days = week_days.inject(:|)
+          else
+            DAYS_OF_WEEK[days[0].to_sym]
+          end
+        else
+          day = get_day(new_resource.start_day).to_sym if new_resource.start_day
+          DAYS_OF_WEEK[day]
+        end
+      end
+
+      def months_of_year
+        months_of_year = []
+        if new_resource.months
+          months = new_resource.months.split(',').map(&:upcase)
+          if months.size > 1
+            months.each do |month|
+              month = month.strip.to_sym
+              months_of_year << MONTHS[month]
+            end
+            months_of_year = months_of_year.inject(:|)
+          else
+            months_of_year = MONTHS[new_resource.months.upcase.to_sym]
+          end
+        else
+          months = MONTHS.each do |key, value|
+            months_of_year << MONTHS[key]
+          end
+          months_of_year = months_of_year.inject(:|)
+        end
+        months_of_year
+      end
+
+      # TODO handle run_level here
+      def run_level
+        case new_resource.run_level
+        when :highest
+          TaskScheduler::TASK_RUNLEVEL_HIGHEST
+        when :limited
+          TaskScheduler::TASK_RUNLEVEL_LUA
+        end
+      end
+
+      #TODO: while creating the configuration settings win32-taskscheduler it accepts execution time limit values in ISO8601 formata
+      def config_settings
+        settings = {}
+        settings = {
+          execution_time_limit: ISO8601::Duration.new(new_resource.execution_time_limit.to_i).to_s,
+          enabled: true
+        }
+        settings[:idle_duration] = new_resource.idle_time if new_resource.idle_time
+        settings[:run_only_if_idle] = true if new_resource.idle_time
+        settings
+      end
+
+      def principal_settings
+        settings = {}
+        settings = { run_level: run_level }
+        settings
+      end
+
+      # This method checks if task and command attributes exist since those two are mandatory attributes to create a schedules task.
+      def basic_validation
+        validate = []
+        validate << "Command" if new_resource.command.nil? || new_resource.command.empty?
+        validate << "Task Name" if new_resource.task_name.nil? || new_resource.task_name.empty?
+        return true if validate.empty?
+        raise Chef::Exceptions::ValidationFailed.new "Value for '#{validate.join(', ')}' option cannot be empty"
+      end
 
       # rubocop:disable Style/StringLiteralsInInterpolation
       def run_schtasks(task_action, options = {})
@@ -220,289 +519,7 @@ class Chef
       end
       # rubocop:enable Style/StringLiteralsInInterpolation
 
-      def task_need_update?
-        return true if (new_resource.command &&
-            current_resource.command != new_resource.command.tr("'", '"')) ||
-            current_resource.user != new_resource.user ||
-            current_resource.run_level != new_resource.run_level ||
-            current_resource.cwd != new_resource.cwd ||
-            current_resource.frequency_modifier != new_resource.frequency_modifier ||
-            current_resource.frequency != new_resource.frequency ||
-            current_resource.idle_time != new_resource.idle_time ||
-            random_delay_updated? || execution_time_limit_updated? ||
-            (new_resource.start_day && new_resource.start_day != "N/A" && start_day_updated?) ||
-            (new_resource.start_time && new_resource.start_time != "N/A" && start_time_updated?)
-        begin
-          return true if new_resource.day.to_s.casecmp(current_resource.day.to_s) != 0 ||
-              new_resource.months.to_s.casecmp(current_resource.months.to_s) != 0
-        rescue
-          Chef::Log.debug "caught a raise in task_needs_update?"
-        end
-
-        false
-      end
-
-      # Comparing random_delay values using ISO8601::Duration object Ref: https://github.com/arnau/ISO8601/blob/master/lib/iso8601/duration.rb#L18-L23
-      # di = ISO8601::Duration.new(65707200)
-      # ds = ISO8601::Duration.new('P65707200S')
-      # dp = ISO8601::Duration.new('P2Y1MT2H')
-      # di == dp # => true
-      # di == ds # => true
-      def random_delay_updated?
-        if new_resource.random_delay.nil?
-          false
-        elsif current_resource.random_delay.nil? && new_resource.random_delay == "PT0S" # when user sets random_dealy to 0 sec
-          false
-        elsif current_resource.random_delay.nil?
-          true
-        else
-          ISO8601::Duration.new(current_resource.random_delay) != ISO8601::Duration.new(new_resource.random_delay)
-        end
-      end
-
-      # Comparing execution_time_limit values using Ref: https://github.com/arnau/ISO8601/blob/master/lib/iso8601/duration.rb#L18-L23
-      def execution_time_limit_updated?
-        if new_resource.execution_time_limit.nil?
-          false
-        elsif current_resource.execution_time_limit.nil? && new_resource.execution_time_limit == "PT0S" # when user sets random_dealy to 0 sec
-          false
-        elsif current_resource.execution_time_limit.nil?
-          true
-        else
-          ISO8601::Duration.new(current_resource.execution_time_limit) != ISO8601::Duration.new(new_resource.execution_time_limit)
-        end
-      end
-
-      def start_day_updated?
-        current_day = DateTime.strptime(current_resource.start_day, convert_system_date_format_to_ruby_date_format)
-        new_day = parse_day(new_resource.start_day)
-        current_day != new_day
-      end
-
-      def start_time_updated?
-        time = DateTime.parse(current_resource.start_time).strftime("%H:%M")
-        time != new_resource.start_time
-      end
-
-      def convert_user_date_to_system_date(date_in_string)
-        parse_day(date_in_string).strftime(convert_system_date_format_to_ruby_long_date)
-      end
-
-      def convert_system_date_format_to_ruby_long_date
-        date_format = get_system_short_date_format.dup
-        date_format.sub!("MMM", "%m")
-        common_date_format_conversion(date_format)
-        date_format.sub!("yy", "%Y")
-        date_format
-      end
-
-      def convert_system_date_format_to_ruby_date_format
-        date_format = get_system_short_date_format.dup
-        date_format.sub!("MMM", "%b")
-        common_date_format_conversion(date_format)
-        date_format.sub!("yy", "%y")
-        date_format
-      end
-
-      def common_date_format_conversion(date_format)
-        date_format.sub!("dd", "d")
-        date_format.sub!("d", "%d")
-        date_format.sub!("MM", "%m")
-        date_format.sub!("M", "%m")
-        date_format.sub!("yyyy", "%Y")
-      end
-
-      def get_system_short_date_format
-        return @system_short_date_format if @system_short_date_format
-        Chef::Log.debug "Finding system date format"
-        task_script = <<-EOH
-          [Console]::OutputEncoding = [Text.UTF8Encoding]::UTF8
-          [Globalization.Cultureinfo]::CurrentCulture.DateTimeFormat.ShortDatePattern
-        EOH
-        @system_short_date_format = powershell_out(task_script).stdout.force_encoding("UTF-8").gsub(/[\s+\uFEFF]/, "")
-        @system_short_date_format
-      end
-
-      def convert_system_date_to_mm_dd_yyyy(system_date)
-        system_date_format = convert_system_date_format_to_ruby_date_format
-        unless system_date_format == "%m/%d/%Y"
-          system_date = Date.strptime(system_date, system_date_format).strftime("%m/%d/%Y")
-        end
-        system_date
-      end
-
-      def update_task_xml(options = [])
-        # random_delay xml element is different for different frequencies
-        random_delay_xml_element = {
-          :minute => "Triggers/TimeTrigger/RandomDelay",
-          :hourly => "Triggers/TimeTrigger/RandomDelay",
-          :once => "Triggers/TimeTrigger/RandomDelay",
-          :daily => "Triggers/CalendarTrigger/RandomDelay",
-          :weekly => "Triggers/CalendarTrigger/RandomDelay",
-          :monthly => "Triggers/CalendarTrigger/RandomDelay",
-          :none => "Triggers",
-        }
-
-        xml_element_mapping = {
-          "cwd" => "Actions/Exec/WorkingDirectory",
-          "random_delay" => random_delay_xml_element[new_resource.frequency],
-          "execution_time_limit" => "Settings/ExecutionTimeLimit",
-        }
-
-        Chef::Log.debug "looking for existing tasks"
-
-        task_script = <<-EOH
-            [Console]::OutputEncoding = [Text.UTF8Encoding]::UTF8
-            schtasks /Query /TN \"#{new_resource.task_name}\" /XML
-        EOH
-        xml_cmd = powershell_out(task_script)
-
-        return if xml_cmd.exitstatus != 0
-
-        doc = REXML::Document.new(xml_cmd.stdout)
-
-        if new_resource.frequency == :none
-          doc.root.elements.delete(xml_element_mapping["random_delay"])
-          trigger_element = REXML::Element.new(xml_element_mapping["random_delay"])
-          doc.root.elements.add(trigger_element)
-        end
-
-        options.each do |option|
-          Chef::Log.debug "Removing former #{option} if any"
-          doc.root.elements.delete(xml_element_mapping[option])
-          option_value = new_resource.send("#{option}")
-
-          if option_value
-            Chef::Log.debug "Setting #{option} as #{option_value}"
-            split_xml_path = xml_element_mapping[option].split("/") # eg. if xml_element_mapping[option] = "Actions/Exec/WorkingDirectory"
-            element_name = split_xml_path.last # element_name = "WorkingDirectory"
-            cwd_element = REXML::Element.new(element_name)
-            cwd_element.add_text(option_value)
-            element_root = (split_xml_path - [element_name]).join("/") # element_root = 'Actions/Exec'
-            exec_element = doc.root.elements[element_root]
-            exec_element.add_element(cwd_element)
-          end
-        end
-
-        temp_task_file = ::File.join(ENV["TEMP"], "windows_task.xml")
-        begin
-          ::File.open(temp_task_file, "w:UTF-16LE") do |f|
-            doc.write(f)
-          end
-
-          options = {}
-          options["RU"] = new_resource.user if new_resource.user
-          options["RP"] = new_resource.password if new_resource.password
-          options["IT"] = "" if new_resource.interactive_enabled
-          options["XML"] = temp_task_file
-          run_schtasks("DELETE", "F" => "")
-          run_schtasks("CREATE", options)
-        ensure
-          ::File.delete(temp_task_file)
-        end
-      end
-
-      def load_task_hash(task_name)
-        Chef::Log.debug "Looking for existing tasks"
-
-        task_script = <<-EOH
-          [Console]::OutputEncoding = [Text.UTF8Encoding]::UTF8
-          schtasks /Query /FO LIST /V /TN \"#{task_name}\"
-        EOH
-
-        output = powershell_out(task_script).stdout.force_encoding("UTF-8")
-        if output.empty?
-          task = false
-        else
-          task = {}
-
-          output.split("\n").map! do |line|
-            line.split(": ").map!(&:strip)
-          end.each do |field|
-            if field.is_a?(Array) && field[0].respond_to?(:to_sym)
-              key = (field - [field.last]).join(": ")
-              task[key.gsub(/\s+/, "").to_sym] = field.last
-            end
-          end
-        end
-
-        task_xml = load_task_xml task_name
-        task.merge!(task_xml) if task && task_xml
-
-        task
-      end
-
-      def load_task_xml(task_name)
-        task_script = <<-EOH
-            [Console]::OutputEncoding = [Text.UTF8Encoding]::UTF8
-            schtasks /Query /TN \"#{task_name}\" /XML
-        EOH
-        xml_cmd = powershell_out(task_script)
-
-        return if xml_cmd.exitstatus != 0
-
-        doc = REXML::Document.new(xml_cmd.stdout)
-        root = doc.root
-
-        task = {}
-        task[:run_level] = root.elements["Principals/Principal/RunLevel"].text if root.elements["Principals/Principal/RunLevel"]
-
-        # for frequency = :minutes, :hourly
-        task[:repetition_interval] = root.elements["Triggers/TimeTrigger/Repetition/Interval"].text if root.elements["Triggers/TimeTrigger/Repetition/Interval"]
-
-        # for frequency = :daily
-        task[:schedule_by_day] = root.elements["Triggers/CalendarTrigger/ScheduleByDay/DaysInterval"].text if root.elements["Triggers/CalendarTrigger/ScheduleByDay/DaysInterval"]
-
-        # for frequency = :weekly
-        task[:schedule_by_week] = root.elements["Triggers/CalendarTrigger/ScheduleByWeek/WeeksInterval"].text if root.elements["Triggers/CalendarTrigger/ScheduleByWeek/WeeksInterval"]
-        if root.elements["Triggers/CalendarTrigger/ScheduleByWeek/DaysOfWeek"]
-          task[:day] = []
-          root.elements["Triggers/CalendarTrigger/ScheduleByWeek/DaysOfWeek"].elements.each do |e|
-            task[:day] << e.to_s[0..3].delete("<").delete("/>")
-          end
-          task[:day] = task[:day].join(", ")
-        end
-
-        # for frequency = :monthly
-        task[:schedule_by_month] = root.elements["Triggers/CalendarTrigger/ScheduleByMonth/DaysOfMonth/Day"].text if root.elements["Triggers/CalendarTrigger/ScheduleByMonth/DaysOfMonth/Day"]
-        if root.elements["Triggers/CalendarTrigger/ScheduleByMonth/Months"]
-          task[:months] = []
-          root.elements["Triggers/CalendarTrigger/ScheduleByMonth/Months"].elements.each do |e|
-            task[:months] << e.to_s[0..3].delete("<").delete("/>")
-          end
-          task[:months] = task[:months].join(", ")
-        end
-
-        task[:on_logon] = true if root.elements["Triggers/LogonTrigger"]
-        task[:onstart] = true if root.elements["Triggers/BootTrigger"]
-        task[:on_idle] = true if root.elements["Triggers/IdleTrigger"]
-
-        task[:idle_time] = root.elements["Settings/IdleSettings/Duration"].text if root.elements["Settings/IdleSettings/Duration"] && task[:on_idle]
-
-        task[:none] = true if root.elements["Triggers/"] && root.elements["Triggers/"].entries.empty?
-        task[:once] = true if !(task[:repetition_interval] || task[:schedule_by_day] || task[:schedule_by_week] || task[:schedule_by_month] || task[:on_logon] || task[:onstart] || task[:on_idle] || task[:none])
-        task[:execution_time_limit] = root.elements["Settings/ExecutionTimeLimit"].text if root.elements["Settings/ExecutionTimeLimit"] #by default PT72H
-        task[:random_delay] = root.elements["Triggers/TimeTrigger/RandomDelay"].text if root.elements["Triggers/TimeTrigger/RandomDelay"]
-        task[:random_delay] = root.elements["Triggers/CalendarTrigger/RandomDelay"].text if root.elements["Triggers/CalendarTrigger/RandomDelay"]
-        task
-      end
-
       SYSTEM_USERS = ['NT AUTHORITY\SYSTEM', "SYSTEM", 'NT AUTHORITY\LOCALSERVICE', 'NT AUTHORITY\NETWORKSERVICE', 'BUILTIN\USERS', "USERS"].freeze
-
-      def use_password?
-        @use_password ||= !SYSTEM_USERS.include?(new_resource.user.upcase)
-      end
-
-      def schedule
-        case new_resource.frequency
-        when :on_logon
-          "ONLOGON"
-        when :on_idle
-          "ONIDLE"
-        else
-          new_resource.frequency
-        end
-      end
 
       def frequency_modifier_allowed
         case new_resource.frequency
@@ -515,52 +532,8 @@ class Chef
         end
       end
 
-      def set_current_run_level(run_level)
-        case run_level
-        when "HighestAvailable"
-          current_resource.run_level(:highest)
-        when "LeastPrivilege"
-          current_resource.run_level(:limited)
-        end
-      end
-
-      def set_current_frequency(task_hash)
-        if task_hash[:repetition_interval]
-          duration = ISO8601::Duration.new(task_hash[:repetition_interval])
-          if task_hash[:repetition_interval].include?("M")
-            current_resource.frequency(:minute)
-            current_resource.frequency_modifier(duration.minutes.atom.to_i)
-          elsif task_hash[:repetition_interval].include?("H")
-            current_resource.frequency(:hourly)
-            current_resource.frequency_modifier(duration.hours.atom.to_i)
-          end
-        end
-
-        if task_hash[:schedule_by_day]
-          current_resource.frequency(:daily)
-          current_resource.frequency_modifier(task_hash[:schedule_by_day].to_i)
-        end
-
-        if task_hash[:schedule_by_week]
-          current_resource.frequency(:weekly)
-          current_resource.frequency_modifier(task_hash[:schedule_by_week].to_i)
-        end
-
-        current_resource.frequency(:monthly) if task_hash[:schedule_by_month]
-        current_resource.frequency(:on_logon) if task_hash[:on_logon]
-        current_resource.frequency(:onstart) if task_hash[:onstart]
-        current_resource.frequency(:on_idle) if task_hash[:on_idle]
-        current_resource.frequency(:once) if task_hash[:once]
-        current_resource.frequency(:none) if task_hash[:none]
-      end
-
-      def set_current_idle_time(idle_time)
-        duration = ISO8601::Duration.new(idle_time)
-        current_resource.idle_time(duration.minutes.atom.to_i)
-      end
-
-      def parse_day(str)
-        Date.strptime(str, "%m/%d/%Y")
+      def get_day(date)
+        Date.strptime(date, "%m/%d/%Y").strftime("%a").upcase
       end
 
     end
