@@ -66,7 +66,6 @@ class Chef
       def after_created
         if random_delay
           validate_random_delay(random_delay, frequency)
-          #duration = sec_to_dur(random_delay)
           random_delay(sec_to_min(random_delay))
         end
 
@@ -116,9 +115,8 @@ class Chef
       end
 
       def validate_random_delay(random_delay, frequency)
-        #if [:once, :on_logon, :onstart, :on_idle, :none].include? frequency
         if [:on_logon, :onstart, :on_idle, :none].include? frequency
-          raise ArgumentError, "`random_delay` property is supported only for frequency :minute, :hourly, :daily, :weekly and :monthly"
+          raise ArgumentError, "`random_delay` property is supported only for frequency :once, :minute, :hourly, :daily, :weekly and :monthly"
         end
 
         raise ArgumentError, "Invalid value passed for `random_delay`. Please pass seconds as an Integer (e.g. 60) or a String with numeric values only (e.g. '60')." unless numeric_value_in_string?(random_delay)
@@ -126,7 +124,6 @@ class Chef
 
       # @todo when we drop ruby 2.3 support this should be converted to .match?() instead of =~f
       def validate_start_day(start_day, frequency)
-        #if start_day && [:once, :on_logon, :onstart, :on_idle, :none].include?(frequency)
         if start_day && [:on_logon, :onstart, :on_idle, :none].include?(frequency)
           raise ArgumentError, "`start_day` property is not supported with frequency: #{frequency}"
         end
@@ -142,8 +139,6 @@ class Chef
         if start_time
           raise ArgumentError, "`start_time` property is not supported with `frequency :none`" if frequency == :none
           raise ArgumentError, "`start_time` property must be in the HH:mm format (e.g. 6:20pm -> 18:20)." unless /^[0-2][0-9]:[0-5][0-9]$/ =~ start_time
-        else
-          # raise ArgumentError, "`start_time` needs to be provided with frequency: `#{frequency}`"
         end
       end
 
