@@ -139,6 +139,8 @@ class Chef
         if start_time
           raise ArgumentError, "`start_time` property is not supported with `frequency :none`" if frequency == :none
           raise ArgumentError, "`start_time` property must be in the HH:mm format (e.g. 6:20pm -> 18:20)." unless /^[0-2][0-9]:[0-5][0-9]$/ =~ start_time
+        else
+          raise ArgumentError, "`start_time` needs to be provided with `frequency :once`" if frequency == :once
         end
       end
 

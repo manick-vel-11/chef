@@ -111,6 +111,7 @@ class Chef
         else
           @current_resource.exists = false
         end
+        @current_resource
         # task_hash = load_task_hash(pathed_task_name)
 
         # set_current_resource(task_hash) if task_hash.respond_to?(:[]) && task_hash[:TaskName] == pathed_task_name
@@ -303,7 +304,7 @@ class Chef
         start_time_updated?(current_task_trigger, new_task_trigger) == true ||
         current_task_trigger[:trigger_type] != new_task_trigger[:trigger_type] ||
         current_task_trigger[:type] != new_task_trigger[:type] ||
-        current_task_trigger[:random_minutes_interval] != new_task_trigger[:random_minutes_interval] ||
+        current_task_trigger[:random_minutes_interval].to_i != new_task_trigger[:random_minutes_interval].to_i ||
         current_task_trigger[:minutes_interval] != new_task_trigger[:minutes_interval] ||
         task.account_information != new_resource.user ||
         task.max_run_time != new_resource.execution_time_limit.to_i * 1000 ||
