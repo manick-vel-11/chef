@@ -33,34 +33,34 @@ class Chef
       provides :windows_task
 
       MONTHS = {
-        :JAN => TaskScheduler::JANUARY,
-        :FEB => TaskScheduler::FEBRUARY,
-        :MAR => TaskScheduler::MARCH,
-        :APR => TaskScheduler::APRIL,
-        :MAY => TaskScheduler::MAY,
-        :JUN => TaskScheduler::JUNE,
-        :JUL => TaskScheduler::JULY,
-        :AUG => TaskScheduler::AUGUST,
-        :SEP => TaskScheduler::SEPTEMBER,
-        :OCT => TaskScheduler::OCTOBER,
-        :NOV => TaskScheduler::NOVEMBER,
-        :DEC => TaskScheduler::DECEMBER
+        JAN: TaskScheduler::JANUARY,
+        FEB: TaskScheduler::FEBRUARY,
+        MAR: TaskScheduler::MARCH,
+        APR: TaskScheduler::APRIL,
+        MAY: TaskScheduler::MAY,
+        JUN: TaskScheduler::JUNE,
+        JUL: TaskScheduler::JULY,
+        AUG: TaskScheduler::AUGUST,
+        SEP: TaskScheduler::SEPTEMBER,
+        OCT: TaskScheduler::OCTOBER,
+        NOV: TaskScheduler::NOVEMBER,
+        DEC: TaskScheduler::DECEMBER
       }
 
-      DAYS_OF_WEEK = { :MON => TaskScheduler::MONDAY,
-                       :TUE => TaskScheduler::TUESDAY,
-                       :WED => TaskScheduler::WEDNESDAY,
-                       :THU => TaskScheduler::THURSDAY,
-                       :FRI => TaskScheduler::FRIDAY,
-                       :SAT => TaskScheduler::SATURDAY,
-                       :SUN => TaskScheduler::SUNDAY }
+      DAYS_OF_WEEK = { MON: TaskScheduler::MONDAY,
+                       TUE: TaskScheduler::TUESDAY,
+                       WED: TaskScheduler::WEDNESDAY,
+                       THU: TaskScheduler::THURSDAY,
+                       FRI: TaskScheduler::FRIDAY,
+                       SAT: TaskScheduler::SATURDAY,
+                       SUN: TaskScheduler::SUNDAY }
 
       WEEKS_OF_MONTH = {
-        :FIRST => TaskScheduler::FIRST_WEEK,
-        :SECOND => TaskScheduler::SECOND_WEEK,
-        :THIRD => TaskScheduler::THIRD_WEEK,
-        :FOURTH => TaskScheduler::FOURTH_WEEK,
-        :LAST => TaskScheduler::LAST_WEEK
+        FIRST: TaskScheduler::FIRST_WEEK,
+        SECOND: TaskScheduler::SECOND_WEEK,
+        THIRD: TaskScheduler::THIRD_WEEK,
+        FOURTH: TaskScheduler::FOURTH_WEEK,
+        LAST: TaskScheduler::LAST_WEEK
       }
 
       DAYS_OF_MONTH = {
@@ -233,15 +233,15 @@ class Chef
       end
 
       def trigger
-        date = new_resource.start_day.split('/') if new_resource.start_day
-        time = new_resource.start_time.split(':') if new_resource.start_time
+        start_month, start_day, start_year = new_resource.start_day.to_s.split('/')
+        start_hour, start_minute = new_resource.start_time.to_s.split(':')
         #TODO currently end_month, end_year and end_year needs to be set to 0. If not set win32-taskscheduler throwing nil into integer error.
         trigger_hash = {
-          start_year: date.nil? ? 0 : date[2].to_i,
-          start_month: date.nil? ? 0 : date[0].to_i,
-          start_day: date.nil? ? 0 : date[1].to_i,
-          start_hour: time.nil? ? 0 : time[0].to_i,
-          start_minute: time.nil? ? 0 : time[1].to_i,
+          start_year: start_year.to_i,
+          start_month: start_month.to_i,
+          start_day: start_day.to_i,
+          start_hour: start_hour.to_i,
+          start_minute: start_minute.to_i,
           end_month: 0,
           end_day: 0,
           end_year: 0,
