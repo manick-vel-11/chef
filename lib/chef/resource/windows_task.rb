@@ -98,12 +98,8 @@ class Chef
       end
 
       def validate_frequency_monthly(frequency_modifier, months, day)
-        if frequency_modifier != 1
-          if  frequency_modifier_includes_days_of_weeks?(frequency_modifier)
-            unless day
-              raise ArgumentError, "Please select day on which you want to run the task e.g. 'Mon, Tue'. Multiple values should be commas seprated."
-            end
-          end
+        if (frequency_modifier != 1) && (frequency_modifier_includes_days_of_weeks?(frequency_modifier)) && !(day)
+          raise ArgumentError, "Please select day on which you want to run the task e.g. 'Mon, Tue'. Multiple values should be commas seprated."
         end
       end
 
@@ -217,10 +213,12 @@ class Chef
       end
 
       def days_includes_days_of_months?(days)
-        days.each do |d|
-          return false unless (1..31).to_a.map(&:to_s).push("last").include?(d.to_s.strip.downcase)
-        end
-        true
+        days.map! { |d| d.to_s.strip.downcase }
+        (days - valid_days).empty?
+      end
+
+      def valid_days
+        ("1".."31").to_a << "last"
       end
 
       def validate_create_months(months, frequency)

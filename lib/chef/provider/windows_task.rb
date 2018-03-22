@@ -330,11 +330,7 @@ class Chef
           when :monthly
             # If frequency modifier is set with frequency :monthly we are setting taskscheduler as monthlydow
             # Ref https://msdn.microsoft.com/en-us/library/windows/desktop/aa382061(v=vs.85).aspx
-            if new_resource.frequency_modifier != 1
-              TaskScheduler::MONTHLYDOW
-            else
-              TaskScheduler::MONTHLYDATE
-            end
+            (new_resource.frequency_modifier != 1) ? TaskScheduler::MONTHLYDOW : TaskScheduler::MONTHLYDATE
           when :on_idle
             TaskScheduler::ON_IDLE
           when :onstart
