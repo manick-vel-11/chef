@@ -70,10 +70,11 @@ class Chef
         end
 
         if execution_time_limit
-          unless execution_time_limit == "PT72H" # don't double convert an ISO8601 format duration
-            raise ArgumentError, "Invalid value passed for `execution_time_limit`. Please pass seconds as an Integer (e.g. 60) or a String with numeric values only (e.g. '60')." unless numeric_value_in_string?(execution_time_limit)
-            duration = sec_to_dur(execution_time_limit)
-            execution_time_limit(duration)
+          if execution_time_limit == "PT72H"
+            execution_time_limit(sec_to_min(259200))
+          else
+            raise ArgumentError  "Invalid value passed for `execution_time_limit`. Please pass seconds as an Integer (e.g. 60) or a String with numeric values only (e.g. '60')." unless numeric_value_in_string?(execution_time_limit)
+            execution_time_limit(sec_to_min(execution_time_limit))
           end
         end
 

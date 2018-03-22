@@ -60,8 +60,8 @@ class Chef
         :FIRST => TaskScheduler::FIRST_WEEK,
         :SECOND => TaskScheduler::SECOND_WEEK,
         :THIRD => TaskScheduler::THIRD_WEEK,
-        :FOURTH => TaskScheduler::FOURTH_WEEK
-#        :LAST => TaskScheduler::LAST_WEEK
+        :FOURTH => TaskScheduler::FOURTH_WEEK,
+        :LAST => TaskScheduler::LAST_WEEK
       }
 
       DAYS_OF_MONTH = {
@@ -112,10 +112,6 @@ class Chef
           @current_resource.exists = false
         end
         @current_resource
-        # task_hash = load_task_hash(pathed_task_name)
-
-        # set_current_resource(task_hash) if task_hash.respond_to?(:[]) && task_hash[:TaskName] == pathed_task_name
-        # current_resource
       end
 
       def action_create
@@ -137,7 +133,7 @@ class Chef
           task.application_name = new_resource.command
           task.configure_settings(config_settings)
           task.configure_principals(principal_settings)
-          task.set_account_information(new_resource.user, new_resource.password) ## unless (new_resource.user.nil? || new_resource.user == 'SYSTEM') && new_resource.password.nil?
+          task.set_account_information(new_resource.user, new_resource.password)
           converge_by("#{new_resource} task created") do
             task.activate(new_resource.name)
           end
@@ -181,7 +177,6 @@ class Chef
           else
             converge_by("#{new_resource} task ended") do
               current_resource.task.stop
-              #run_schtasks "END"
             end
           end
         else
@@ -225,21 +220,14 @@ class Chef
       private
 
       def set_start_day_and_time
-        unless new_resource.start_day
-          new_resource.start_day = Time.now.strftime("%m/%d/%Y")
-        end
-
-        unless new_resource.start_time
-          new_resource.start_time = Time.now.strftime("%H:%M")
-        end
+        new_resource.start_day = Time.now.strftime("%m/%d/%Y") unless new_resource.start_day
+        new_resource.start_time = Time.now.strftime("%H:%M") unless new_resource.start_time
       end
 
       def update_task(task)
         converge_by("#{new_resource} task updated") do
           task.application_name = new_resource.command
           task.trigger = trigger
-          # TODO: Check update for execution time limit
-          task.max_run_time = new_resource.execution_time_limit.to_i * 1000
           task.configure_settings(config_settings)
           task.configure_principals(principal_settings)
         end
@@ -249,7 +237,6 @@ class Chef
         date = new_resource.start_day.split('/') if new_resource.start_day
         time = new_resource.start_time.split(':') if new_resource.start_time
         #TODO currently end_month, end_year and end_year needs to be set to 0. If not set win32-taskscheduler throwing nil into integer error.
-        trigger_hash = {}
         trigger_hash = {
           start_year: date.nil? ? 0 : date[2].to_i,
           start_month: date.nil? ? 0 : date[0].to_i,
@@ -297,19 +284,27 @@ class Chef
 
         if new_resource.frequency == :on_idle
           # Converting here new_resource.idle_time in seconds to compare
-          flag =  true if ISO8601::Duration.new(task.idle_settings[:idle_duration]) != ISO8601::Duration.new(new_resource.idle_time*60)
+          flag =  true if ISO8601::Duration.new(task.idle_settings[:idle_duration]) != ISO8601::Duration.new(new_resource.idle_time * 60)
         end
 
-        flag = true if start_day_updated?(current_task_trigger, new_task_trigger) == true ||
-        start_time_updated?(current_task_trigger, new_task_trigger) == true ||
-        current_task_trigger[:trigger_type] != new_task_trigger[:trigger_type] ||
-        current_task_trigger[:type] != new_task_trigger[:type] ||
-        current_task_trigger[:random_minutes_interval].to_i != new_task_trigger[:random_minutes_interval].to_i ||
-        current_task_trigger[:minutes_interval] != new_task_trigger[:minutes_interval] ||
-        task.account_information != new_resource.user ||
-        task.max_run_time != new_resource.execution_time_limit.to_i * 1000 ||
-        task.application_name != new_resource.command ||
-        task.principals[:run_level] != run_level
+        unless new_resource.execution_time_limit.nil?
+          flag = true if ISO8601::Duration.new(task.execution_time_limit) != ISO8601::Duration.new(new_resource.execution_time_limit * 60)
+        end
+
+        # if trigger not found updating the task to add the trigger
+        if current_task_trigger.nil?
+          flag = true
+        else
+          flag = true if start_day_updated?(current_task_trigger, new_task_trigger) == true ||
+          start_time_updated?(current_task_trigger, new_task_trigger) == true ||
+          current_task_trigger[:trigger_type] != new_task_trigger[:trigger_type] ||
+          current_task_trigger[:type] != new_task_trigger[:type] ||
+          current_task_trigger[:random_minutes_interval].to_i != new_task_trigger[:random_minutes_interval].to_i ||
+          current_task_trigger[:minutes_interval] != new_task_trigger[:minutes_interval] ||
+          task.account_information != new_resource.user ||
+          task.application_name != new_resource.command ||
+          task.principals[:run_level] != run_level
+        end
 
         flag
       end
@@ -386,6 +381,7 @@ class Chef
         end
       end
 
+      # NOTE: Idempotency for weeks_of_month is not getting maintained with `last` week since win32-taskscheduler library returns wrong value which we use for comparision
       def weeks_of_month
         weeks_of_month = []
         if new_resource.frequency_modifier
@@ -393,8 +389,9 @@ class Chef
           weeks.each do |week|
             weeks_of_month << WEEKS_OF_MONTH[week.strip.upcase.to_sym]
           end
-          weeks_of_month.size > 1 ? weeks_of_month.inject(:|) : weeks_of_month[0]
+          weeks_of_month = weeks_of_month.size > 1 ? weeks_of_month.inject(:|) : weeks_of_month[0]
         end
+        weeks_of_month
       end
 
       # known issue : setting days of month last does not work coming acorss
@@ -464,7 +461,6 @@ class Chef
         months_of_year
       end
 
-      # TODO handle run_level here
       def run_level
         case new_resource.run_level
         when :highest
@@ -476,9 +472,8 @@ class Chef
 
       #TODO: while creating the configuration settings win32-taskscheduler it accepts execution time limit values in ISO8601 formata
       def config_settings
-        settings = {}
         settings = {
-          execution_time_limit: ISO8601::Duration.new(new_resource.execution_time_limit.to_i).to_s,
+          execution_time_limit: new_resource.execution_time_limit,
           enabled: true
         }
         settings[:idle_duration] = new_resource.idle_time if new_resource.idle_time
@@ -487,9 +482,7 @@ class Chef
       end
 
       def principal_settings
-        settings = {}
         settings = { run_level: run_level }
-        settings
       end
 
       # This method checks if task and command attributes exist since those two are mandatory attributes to create a schedules task.
@@ -520,8 +513,6 @@ class Chef
       end
       # rubocop:enable Style/StringLiteralsInInterpolation
 
-      SYSTEM_USERS = ['NT AUTHORITY\SYSTEM', "SYSTEM", 'NT AUTHORITY\LOCALSERVICE', 'NT AUTHORITY\NETWORKSERVICE', 'BUILTIN\USERS', "USERS"].freeze
-
       def frequency_modifier_allowed
         case new_resource.frequency
         when :minute, :hourly, :daily, :weekly
@@ -536,7 +527,6 @@ class Chef
       def get_day(date)
         Date.strptime(date, "%m/%d/%Y").strftime("%a").upcase
       end
-
     end
   end
 end
