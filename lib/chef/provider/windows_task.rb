@@ -22,7 +22,6 @@ require "iso8601"
 require "chef/mixin/powershell_out"
 require "chef/provider"
 require "win32/taskscheduler"
-require 'pry'
 
 class Chef
   class Provider
@@ -310,28 +309,14 @@ class Chef
       end
 
       def start_day_updated?(current_task_trigger, new_task_trigger)
-        if new_resource.start_day
-          return true if current_task_trigger[:start_year].to_i != new_task_trigger[:start_year] ||
-          current_task_trigger[:start_month].to_i != new_task_trigger[:start_month] ||
-          current_task_trigger[:start_day].to_i != new_task_trigger[:start_day]
-        else
-          false
-        end
+        ( new_resource.start_day && (current_task_trigger[:start_year].to_i != new_task_trigger[:start_year] ||
+                  current_task_trigger[:start_month].to_i != new_task_trigger[:start_month] ||
+                  current_task_trigger[:start_day].to_i != new_task_trigger[:start_day]) )
       end
 
       def start_time_updated?(current_task_trigger, new_task_trigger)
-        if new_resource.start_time
-          return true if current_task_trigger[:start_hour].to_i != new_task_trigger[:start_hour] ||
-          current_task_trigger[:start_minute].to_i != new_task_trigger[:start_minute]
-        else
-          false
-        end
-      end
-
-      def find_task
-        ts = TaskScheduler.new
-        ts.activate(new_resource.name)
-        ts.trigger(0)
+        ( new_resource.start_time && ( current_task_trigger[:start_hour].to_i != new_task_trigger[:start_hour] ||
+          current_task_trigger[:start_minute].to_i != new_task_trigger[:start_minute] ) )
       end
 
       def trigger_type
@@ -362,21 +347,22 @@ class Chef
       end
 
       def type
-        if trigger_type == TaskScheduler::ONCE
+        case trigger_type
+        when TaskScheduler::ONCE
           { once: nil }
-        elsif trigger_type == TaskScheduler::DAILY
+        when TaskScheduler::DAILY
           { days_interval: new_resource.frequency_modifier }
-        elsif trigger_type == TaskScheduler::WEEKLY
+        when TaskScheduler::WEEKLY
           { weeks_interval: new_resource.frequency_modifier, days_of_week: days_of_week }
-        elsif trigger_type == TaskScheduler::MONTHLYDATE
+        when TaskScheduler::MONTHLYDATE
           { months: months_of_year, days: days_of_month }
-        elsif trigger_type == TaskScheduler::MONTHLYDOW
+        when TaskScheduler::MONTHLYDOW
           { months: months_of_year, days_of_week: days_of_week, weeks_of_month: weeks_of_month }
-        elsif trigger_type == TaskScheduler::ON_IDLE
+        when TaskScheduler::ON_IDLE
           # TODO: handle option for this trigger
-        elsif trigger_type == TaskScheduler::AT_LOGON
+        when TaskScheduler::AT_LOGON
           # TODO: handle option for this trigger
-        elsif trigger_type == TaskScheduler::AT_SYSTEMSTART
+        when TaskScheduler::AT_SYSTEMSTART
           # TODO: handle option for this trigger
         end
       end

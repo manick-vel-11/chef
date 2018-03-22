@@ -18,7 +18,6 @@
 
 require "spec_helper"
 require "chef/provider/windows_task"
-require 'pry'
 
 describe Chef::Resource::WindowsTask, :windows_only do
   let(:task_name) { "chef-client" }

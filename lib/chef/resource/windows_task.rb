@@ -17,7 +17,6 @@
 #
 
 require "chef/resource"
-require 'pry'
 
 class Chef
   class Resource
