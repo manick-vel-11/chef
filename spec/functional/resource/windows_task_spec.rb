@@ -201,9 +201,9 @@ describe Chef::Resource::WindowsTask, :windows_only do
       context "when start_time is not provided" do
         # TODO need to cover this argument error needs to be captured here
 
-        # it "raises argument error" do
-        #   expect { subject.run_action(:create) }.to raise_error(Mixlib::ShellOut::ShellCommandFailed)
-        # end
+        it "raises argument error" do
+          expect { subject.after_created }.to raise_error("`start_time` needs to be provided with `frequency :once`")
+        end
       end
 
       context "when start_time is provided" do
@@ -311,19 +311,19 @@ describe Chef::Resource::WindowsTask, :windows_only do
         end
       end
 
-      # context "when invalid day is passed" do
-      #   it "raises error" do
-      #     subject.day "abc"
-      #     expect { subject.run_action(:create) }.to raise_error(Mixlib::ShellOut::ShellCommandFailed)
-      #   end
-      # end
+      context "when invalid day is passed" do
+        it "raises error" do
+          subject.day "abc"
+          expect { subject.after_created }.to raise_error("day property invalid. Only valid values are: mon, tue, wed, thu, fri, sat, sun, *. Multiple values must be separated by a comma.")
+        end
+      end
 
-      # context "when months are passed" do
-      #   it "raises error that months are supported only when frequency=:monthly" do
-      #     subject.months "Jan"
-      #     expect { subject.run_action(:create) }.to raise_error(Mixlib::ShellOut::ShellCommandFailed)
-      #   end
-      # end
+      context "when months are passed" do
+        it "raises error that months are supported only when frequency=:monthly" do
+          subject.months "Jan"
+          expect { subject.after_created }.to raise_error("months property is only valid for tasks that run monthly")
+        end
+      end
 
       context "frequency :on_logon" do
         subject do
@@ -364,11 +364,11 @@ describe Chef::Resource::WindowsTask, :windows_only do
         new_resource
       end
 
-      # context "when idle_time is not passed" do
-      #   it "raises error" do
-      #     expect { subject.run_action(:create) }.to raise_error(Mixlib::ShellOut::ShellCommandFailed)
-      #   end
-      # end
+      context "when idle_time is not passed" do
+        it "raises error" do
+          expect { subject.after_created }.to raise_error("idle_time value should be set for :on_idle frequency.")
+        end
+      end
 
       context "when idle_time is passed" do
         it "creates the scheduled task to run when system is idle" do
@@ -469,13 +469,6 @@ describe Chef::Resource::WindowsTask, :windows_only do
 #         expect(subject).not_to be_updated_by_last_action
 #       end
 #     end
-
-
-
-
-
-
-
 
   describe "Examples of idempotent checks for each frequency" do
     after { delete_task }
@@ -740,12 +733,12 @@ describe Chef::Resource::WindowsTask, :windows_only do
       new_resource
     end
 
-#     it "deletes the task if it exists" do
-#       subject.run_action(:create)
-#       delete_task
-#       task_details = windows_task_provider.send(:load_task_hash, task_name)
-#       expect(task_details).to eq(false)
-#     end
+    it "does not converge the resource if it is already converged" do
+      subject.run_action(:create)
+      subject.run_action(:delete)
+      subject.run_action(:delete)
+      expect(subject).not_to be_updated_by_last_action
+    end
 
     it "does not converge the resource if it is already converged" do
       subject.run_action(:create)
@@ -755,81 +748,84 @@ describe Chef::Resource::WindowsTask, :windows_only do
     end
   end
 
-#   describe "action :run" do
-#     after { delete_task }
+  describe "action :run" do
+    after { delete_task }
 
-#     subject do
-#       new_resource = Chef::Resource::WindowsTask.new(task_name, run_context)
-#       new_resource.command "dir"
-#       new_resource.run_level :highest
-#       new_resource
-#     end
+    subject do
+      new_resource = Chef::Resource::WindowsTask.new(task_name, run_context)
+      new_resource.command "dir"
+      new_resource.run_level :highest
+      new_resource.execution_time_limit = 259200 / 60 # converting "PT72H" into minutes and passing here since
+      new_resource
+    end
 
-#     it "runs the existing task" do
-#       skip "Task status is returned as Ready instead of Running randomly"
-#       subject.run_action(:create)
-#       subject.run_action(:run)
-#       task_details = windows_task_provider.send(:load_task_hash, task_name)
-#       expect(task_details[:Status]).to eq("Running")
-#     end
-#   end
+    it "runs the existing task" do
+      subject.run_action(:create)
+      subject.run_action(:run)
+      current_resource = call_for_load_current_resource
+      expect(current_resource.task.status).to eq("queued") #or can be running
+    end
+  end
 
-#   describe "action :end", :volatile do
-#     after { delete_task }
+  describe "action :end", :volatile do
+    after { delete_task }
 
-#     subject do
-#       new_resource = Chef::Resource::WindowsTask.new(task_name, run_context)
-#       new_resource.command "dir"
-#       new_resource.run_level :highest
-#       new_resource
-#     end
+    subject do
+      new_resource = Chef::Resource::WindowsTask.new(task_name, run_context)
+      new_resource.command "dir"
+      new_resource.run_level :highest
+      new_resource.execution_time_limit = 259200 / 60 # converting "PT72H" into minutes and passing here since
+      new_resource
+    end
 
-#     it "ends the running task" do
-#       subject.run_action(:create)
-#       subject.run_action(:run)
-#       task_details = windows_task_provider.send(:load_task_hash, task_name)
-#       subject.run_action(:end)
-#       task_details = windows_task_provider.send(:load_task_hash, task_name)
-#       expect(task_details[:Status]).to eq("Ready")
-#     end
-#   end
+    it "ends the running task" do
+      subject.run_action(:create)
+      subject.run_action(:run)
+      subject.run_action(:end)
+      current_resource = call_for_load_current_resource
+      expect(current_resource.task.status).to eq("queued") #or can be ready
+    end
+  end
 
-#   describe "action :enable" do
-#     after { delete_task }
+  describe "action :enable" do
+    after { delete_task }
 
-#     subject do
-#       new_resource = Chef::Resource::WindowsTask.new(task_name, run_context)
-#       new_resource.command task_name
-#       new_resource
-#     end
+    subject do
+      new_resource = Chef::Resource::WindowsTask.new(task_name, run_context)
+      new_resource.command task_name
+      new_resource.execution_time_limit = 259200 / 60 # converting "PT72H" into minutes and passing here since
+      new_resource
+    end
 
-#     it "enables the disabled task" do
-#       subject.run_action(:create)
-#       subject.run_action(:disable)
-#       task_details = windows_task_provider.send(:load_task_hash, task_name)
-#       expect(task_details[:ScheduledTaskState]).to eq("Disabled")
-#       subject.run_action(:enable)
-#       task_details = windows_task_provider.send(:load_task_hash, task_name)
-#       expect(task_details[:ScheduledTaskState]).to eq("Enabled")
-#     end
-#   end
+    it "enables the disabled task" do
+      subject.run_action(:create)
+      subject.run_action(:disable)
+      current_resource = call_for_load_current_resource
+      expect(current_resource.task.status).to eq("not scheduled")
+      subject.run_action(:enable)
+      current_resource = call_for_load_current_resource
+      expect(current_resource.task.status).to eq("ready")
+    end
+  end
 
-#   describe "action :disable" do
-#     after { delete_task }
+  describe "action :disable" do
+    after { delete_task }
 
-#     subject do
-#       new_resource = Chef::Resource::WindowsTask.new(task_name, run_context)
-#       new_resource.command task_name
-#       new_resource
-#     end
+    subject do
+      new_resource = Chef::Resource::WindowsTask.new(task_name, run_context)
+      new_resource.command task_name
+      new_resource.execution_time_limit = 259200 / 60 # converting "PT72H" into minutes and passing here since
+      new_resource
+    end
 
-#     it "disables the task" do
-#       subject.run_action(:create)
-#       subject.run_action(:disable)
-#       task_details = windows_task_provider.send(:load_task_hash, task_name)
-#       expect(task_details[:ScheduledTaskState]).to eq("Disabled")
-#     end
-#   end
+    it "disables the task" do
+      subject.run_action(:create)
+      subject.run_action(:disable)
+      current_resource = call_for_load_current_resource
+      expect(current_resource.task.status).to eq("not scheduled")
+    end
+  end
+
 
   def delete_task
     task_to_delete = Chef::Resource::WindowsTask.new(task_name, run_context)
