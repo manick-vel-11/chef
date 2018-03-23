@@ -225,6 +225,7 @@ class Chef
 
       def update_task(task)
         converge_by("#{new_resource} task updated") do
+          task.set_account_information(new_resource.user, new_resource.password)
           task.application_name = new_resource.command
           task.trigger = trigger
           task.configure_settings(config_settings)

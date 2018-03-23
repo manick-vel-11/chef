@@ -711,7 +711,7 @@ describe Chef::Resource::WindowsTask, :windows_only do
       it "raises error" do
         subject.months "xyz"
         subject.frequency :monthly
-        expect { subject.after_created }.to raise_error("months property invalid. Only valid values are: JAN, FEB, MAR, APR, MAY, JUN, JUL, AUG, SEP, OCT, NOV, DEC and *. Multiple values must be separated by a comma.")
+        expect { subject.after_created }.to raise_error("months property invalid. Only valid values are: JAN, FEB, MAR, APR, MAY, JUN, JUL, AUG, SEP, OCT, NOV, DEC, *. Multiple values must be separated by a comma.")
       end
     end
 
