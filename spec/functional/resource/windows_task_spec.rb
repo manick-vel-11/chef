@@ -150,42 +150,205 @@ describe Chef::Resource::WindowsTask, :windows_only do
       end
     end
 
-    # TODO : if frequency modifier is given it creates the monthly frequency with interval of 2 months not handled in code
-    context "frequency :monthly" do
-      # subject do
-      #   new_resource = Chef::Resource::WindowsTask.new(task_name, run_context)
-      #   new_resource.command task_name
-      #   new_resource.run_level :highest
-      #   new_resource.frequency :monthly
-      #   new_resource.frequency_modifier 2
-      #   new_resource
-      # end
+    describe "frequency :monthly" do
+      context "Pass start_day and start_time compulsory" do
+        subject do
+          new_resource = Chef::Resource::WindowsTask.new(task_name, run_context)
+          new_resource.command task_name
+          new_resource.run_level :highest
+          new_resource.frequency :monthly
+          new_resource.execution_time_limit = 259200 / 60 # converting "PT72H" into minutes and passing here since win32-taskscheduler accespts this
+          new_resource.start_day "02/12/2018"
+          new_resource.start_time "05:15"
+          new_resource
+        end
 
-      # it "creates a scheduled task to every 2 months" do
-      #   call_for_create_action
-      #   #loading current resource again to check new task is creted and it matches task parameters
-      #   current_resource = call_for_load_current_resource
-      #   expect(current_resource.exists).to eq(true)
-      #   trigger_details = current_resource.task.trigger(0)
-      #   expect(current_resource.task.application_name).to eq("chef-client")
-      #   expect(trigger_details[:trigger_type]).to eq(2)
-      #   expect(current_resource.task.principals[:run_level]).to eq(1)
-      #   expect(trigger_details[:type][:days_interval]).to eq(1)
+        it "creates a scheduled task to run monthly on first day of the month" do
+          call_for_create_action
+          #loading current resource again to check new task is creted and it matches task parameters
+          current_resource = call_for_load_current_resource
+          expect(current_resource.exists).to eq(true)
+          trigger_details = current_resource.task.trigger(0)
+          expect(current_resource.task.application_name).to eq("chef-client")
+          expect(trigger_details[:trigger_type]).to eq(4)
+          expect(current_resource.task.principals[:run_level]).to eq(1)
+          expect(trigger_details[:type][:days]).to eq(1)
+          expect(trigger_details[:type][:months]).to eq(4095)
+        end
 
-      #   # subject.run_action(:create)
-      #   # task_details = windows_task_provider.send(:load_task_hash, task_name)
-      #   # expect(task_details[:TaskName]).to eq("\\chef-client")
-      #   # expect(task_details[:TaskToRun]).to eq("chef-client")
-      #   # expect(task_details[:ScheduleType]).to eq("Monthly")
-      #   # expect(task_details[:Months]).to eq("FEB, APR, JUN, AUG, OCT, DEC")
-      #   # expect(task_details[:run_level]).to eq("HighestAvailable")
-      # end
+        it "does not converge the resource if it is already converged" do
+          subject.run_action(:create)
+          subject.run_action(:create)
+          expect(subject).not_to be_updated_by_last_action
+        end
 
-      # it "does not converge the resource if it is already converged" do
-      #   subject.run_action(:create)
-      #   subject.run_action(:create)
-      #   expect(subject).not_to be_updated_by_last_action
-      # end
+        it "creates a scheduled task to run monthly on first, second and third day of the month" do
+          subject.day "1, 2, 3"
+          call_for_create_action
+          #loading current resource again to check new task is created and it matches task parameters
+          current_resource = call_for_load_current_resource
+          expect(current_resource.exists).to eq(true)
+          trigger_details = current_resource.task.trigger(0)
+          expect(current_resource.task.application_name).to eq("chef-client")
+          expect(trigger_details[:trigger_type]).to eq(4)
+          expect(current_resource.task.principals[:run_level]).to eq(1)
+          expect(trigger_details[:type][:days]).to eq(7)
+          expect(trigger_details[:type][:months]).to eq(4095)
+        end
+
+        it "does not converge the resource if it is already converged" do
+          subject.day "1, 2, 3"
+          subject.run_action(:create)
+          subject.run_action(:create)
+          expect(subject).not_to be_updated_by_last_action
+        end
+
+        it "creates a scheduled task to run monthly on 1, 2, 3, 4, 8, 20, 21, 15, 28, 31 day of the month" do
+          subject.day "1, 2, 3, 4, 8, 20, 21, 15, 28, 31"
+          call_for_create_action
+          #loading current resource again to check new task is created and it matches task parameters
+          current_resource = call_for_load_current_resource
+          expect(current_resource.exists).to eq(true)
+          trigger_details = current_resource.task.trigger(0)
+          expect(current_resource.task.application_name).to eq("chef-client")
+          expect(trigger_details[:trigger_type]).to eq(4)
+          expect(current_resource.task.principals[:run_level]).to eq(1)
+          expect(trigger_details[:type][:days]).to eq(1209548943) #TODO:: windows_task_provider.send(:days_of_month)
+          expect(trigger_details[:type][:months]).to eq(4095) #windows_task_provider.send(:months_of_year)
+        end
+
+        it "does not converge the resource if it is already converged" do
+          subject.day "1, 2, 3, 4, 8, 20, 21, 15, 28, 31"
+          subject.run_action(:create)
+          subject.run_action(:create)
+          expect(subject).not_to be_updated_by_last_action
+        end
+
+        it "creates a scheduled task to run monthly on Jan, Feb, Apr, Dec on 1st 2nd 3rd 4th 8th and 20th day of these months" do
+          subject.day "1, 2, 3, 4, 8, 20, 21, 30"
+          subject.months "Jan, Feb, May, Sep, Dec"
+          call_for_create_action
+          #loading current resource again to check new task is created and it matches task parameters
+          current_resource = call_for_load_current_resource
+          expect(current_resource.exists).to eq(true)
+          trigger_details = current_resource.task.trigger(0)
+          expect(current_resource.task.application_name).to eq("chef-client")
+          expect(trigger_details[:trigger_type]).to eq(4)
+          expect(current_resource.task.principals[:run_level]).to eq(1)
+          expect(trigger_details[:type][:days]).to eq(538443919) #TODO:windows_task_provider.send(:days_of_month)
+          expect(trigger_details[:type][:months]).to eq(2323) #windows_task_provider.send(:months_of_year)
+        end
+
+        it "does not converge the resource if it is already converged" do
+          subject.day "1, 2, 3, 4, 8, 20, 21, 30"
+          subject.months "Jan, Feb, May, Sep, Dec"
+          subject.run_action(:create)
+          subject.run_action(:create)
+          expect(subject).not_to be_updated_by_last_action
+        end
+
+        it "creates a scheduled task to run monthly by giving day option with frequency_modifier" do
+          subject.frequency_modifier "First"
+          subject.day "Mon, Fri, Sun"
+          call_for_create_action
+          #loading current resource again to check new task is created and it matches task parameters
+          current_resource = call_for_load_current_resource
+          expect(current_resource.exists).to eq(true)
+          trigger_details = current_resource.task.trigger(0)
+          expect(current_resource.task.application_name).to eq("chef-client")
+          expect(trigger_details[:trigger_type]).to eq(5)
+          expect(current_resource.task.principals[:run_level]).to eq(1)
+          expect(trigger_details[:type][:days_of_week]).to eq(35)
+          expect(trigger_details[:type][:weeks_of_month]).to eq(1)
+          expect(trigger_details[:type][:months]).to eq(4095) #windows_task_provider.send(:months_of_year)
+        end
+
+        it "does not converge the resource if it is already converged" do
+          subject.frequency_modifier "First"
+          subject.day "Mon, Fri, Sun"
+          subject.run_action(:create)
+          subject.run_action(:create)
+          expect(subject).not_to be_updated_by_last_action
+        end
+      end
+
+      context "Pass either start day or start time by passing day compulsory or only pass frequency_modifier" do
+        subject do
+          new_resource = Chef::Resource::WindowsTask.new(task_name, run_context)
+          new_resource.command task_name
+          new_resource.run_level :highest
+          new_resource.frequency :monthly
+          new_resource.execution_time_limit = 259200 / 60 # converting "PT72H" into minutes and passing here since win32-taskscheduler accespts this
+          new_resource
+        end
+
+        it "creates a scheduled task to run monthly on second day of the month" do
+          subject.day "2"
+          subject.start_day "03/07/2018"
+          call_for_create_action
+          #loading current resource again to check new task is creted and it matches task parameters
+          current_resource = call_for_load_current_resource
+          expect(current_resource.exists).to eq(true)
+          trigger_details = current_resource.task.trigger(0)
+          expect(current_resource.task.application_name).to eq("chef-client")
+          expect(trigger_details[:trigger_type]).to eq(4)
+          expect(current_resource.task.principals[:run_level]).to eq(1)
+          expect(trigger_details[:type][:days]).to eq(2)
+          expect(trigger_details[:type][:months]).to eq(4095)
+        end
+
+        it "does not converge the resource if it is already converged" do
+          subject.day "2"
+          subject.start_day "03/07/2018"
+          subject.run_action(:create)
+          subject.run_action(:create)
+          expect(subject).not_to be_updated_by_last_action
+        end
+
+        it "creates a scheduled task to run monthly on first, second and third day of the month" do
+          subject.day "1,2,3"
+          call_for_create_action
+          #loading current resource again to check new task is creted and it matches task parameters
+          current_resource = call_for_load_current_resource
+          expect(current_resource.exists).to eq(true)
+          trigger_details = current_resource.task.trigger(0)
+          expect(current_resource.task.application_name).to eq("chef-client")
+          expect(trigger_details[:trigger_type]).to eq(4)
+          expect(current_resource.task.principals[:run_level]).to eq(1)
+          expect(trigger_details[:type][:days]).to eq(7)
+          expect(trigger_details[:type][:months]).to eq(4095)
+        end
+
+        it "does not converge the resource if it is already converged" do
+          subject.day "1,2,3"
+          subject.run_action(:create)
+          subject.run_action(:create)
+          expect(subject).not_to be_updated_by_last_action
+        end
+
+## TODO: if frequency modifier=2 is given it creates the monthly frequency with interval of 2 months not handled in code
+        # it "creates a scheduled task to run monthly on each wednesday of the month" do
+        #   subject.frequency_modifier "2"
+        #   call_for_create_action
+        #   #loading current resource again to check new task is creted and it matches task parameters
+        #   current_resource = call_for_load_current_resource
+        #   expect(current_resource.exists).to eq(true)
+        #   trigger_details = current_resource.task.trigger(0)
+        #   expect(current_resource.task.application_name).to eq("chef-client")
+        #   expect(trigger_details[:trigger_type]).to eq(5)
+        #   expect(current_resource.task.principals[:run_level]).to eq(1)
+        #   expect(trigger_details[:type][:days_of_week]).to eq(8)
+        #   expect(trigger_details[:type][:weeks_of_month]).to eq(1)
+        #   expect(trigger_details[:type][:months]).to eq(4095) #windows_task_provider.send(:months_of_year)
+        # end
+
+        # it "does not converge the resource if it is already converged" do
+        #   subject.frequency_modifier "2"
+        #   subject.run_action(:create)
+        #   subject.run_action(:create)
+        #   expect(subject).not_to be_updated_by_last_action
+        # end
+      end
     end
 
     context "frequency :once" do
@@ -199,8 +362,6 @@ describe Chef::Resource::WindowsTask, :windows_only do
       end
 
       context "when start_time is not provided" do
-        # TODO need to cover this argument error needs to be captured here
-
         it "raises argument error" do
           expect { subject.after_created }.to raise_error("`start_time` needs to be provided with `frequency :once`")
         end
