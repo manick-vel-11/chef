@@ -37,16 +37,39 @@ class Chef
         def load_current_resource
           @current_resource = Chef::Resource::AptPackage.new(new_resource.name)
           current_resource.package_name(new_resource.package_name)
-          current_resource.version(get_current_versions)
+
+          if source_files_exist?
+            @candidate_version = get_candidate_version
+            current_resource.package_name(get_package_name)
+            # if the source file exists then our package_name is right
+            current_resource.version(get_current_version_from(current_package_name_array))
+          elsif !installing?
+            # we can't do this if we're installing with no source, because our package_name
+            # is probably not right.
+            #
+            # if we're removing or purging we don't use source, and our package_name must
+            # be right so we can do this.
+            #
+            # we don't error here on the dpkg command since we'll handle the exception or
+            # the why-run message in define_resource_requirements.
+            current_resource.version(get_current_version_from(current_package_name_array))
+          end
+
           current_resource
         end
 
         def define_resource_requirements
           super
 
-          requirements.assert(:all_actions) do |a|
-            a.assertion { !new_resource.source }
-            a.failure_message(Chef::Exceptions::Package, "apt package provider cannot handle source property. Use dpkg provider instead")
+          requirements.assert(:install, :upgrade) do |a|
+            a.assertion { !resolved_source_array.compact.empty? }
+            a.failure_message Chef::Exceptions::Package, "#{new_resource} the source property is required for action :install or :upgrade"
+          end
+
+          requirements.assert(:install, :upgrade) do |a|
+            a.assertion { source_files_exist? }
+            a.failure_message Chef::Exceptions::Package, "#{new_resource} source file(s) do not exist: #{missing_sources}"
+            a.whyrun "Assuming they would have been previously created."
           end
         end
 
@@ -56,20 +79,12 @@ class Chef
           end
         end
 
-        def get_current_versions
-          package_name_array.map do |package_name|
-            package_data[package_name][:current_version]
-          end
-        end
-
-        def get_candidate_versions
-          package_name_array.map do |package_name|
-            package_data[package_name][:candidate_version]
-          end
+        def current_package_name_array
+          [ current_resource.package_name ].flatten
         end
 
         def candidate_version
-          @candidate_version ||= get_candidate_versions
+          @candidate_version ||= get_candidate_version
         end
 
         def packages_all_locked?(names, versions)
@@ -253,6 +268,66 @@ class Chef
             candidate_version: candidate_version,
             virtual: virtual,
           }
+        end
+
+        # Helper to construct Hash of names-to-package-information.
+        #
+        # @return [Hash] Mapping of package names to package information
+        def name_pkginfo
+          @name_pkginfo ||=
+            begin
+              pkginfos = resolved_source_array.map do |src|
+                logger.trace("#{new_resource} checking #{src} dpkg status")
+                status = shell_out!("dpkg-deb", "-W", src)
+                status.stdout
+              end
+              Hash[*package_name_array.zip(pkginfos).flatten]
+            end
+        end
+
+        def name_candidate_version
+          @name_candidate_version ||= name_pkginfo.transform_values { |v| v ? v.split("\t")[1]&.strip : nil }
+        end
+
+        def name_package_name
+          @name_package_name ||= name_pkginfo.transform_values { |v| v ? v.split("\t")[0] : nil }
+        end
+
+        # Return candidate version array from pkg-deb -W against the source file(s).
+        #
+        # @return [Array] Array of candidate versions read from the source files
+        def get_candidate_version
+          package_name_array.map { |name| name_candidate_version[name] }
+        end
+
+        # Return package names from the candidate source file(s).
+        #
+        # @return [Array] Array of actual package names read from the source files
+        def get_package_name
+          package_name_array.map { |name| name_package_name[name] }
+        end
+
+        # Since upgrade just calls install, this is a helper to determine
+        # if our action means that we'll be calling install_package.
+        #
+        # @return [Boolean] true if we're doing :install or :upgrade
+        def installing?
+          %i{install upgrade}.include?(action)
+        end
+
+        # Returns true if all sources exist.  Returns false if any do not, or if no
+        # sources were specified.
+        #
+        # @return [Boolean] True if all sources exist
+        def source_files_exist?
+          resolved_source_array.all? { |s| s && ::File.exist?(s) }
+        end
+
+        # Helper to return all the names of the missing sources for error messages.
+        #
+        # @return [Array<String>] Array of missing sources
+        def missing_sources
+          resolved_source_array.select { |s| s.nil? || !::File.exist?(s) }
         end
 
       end
