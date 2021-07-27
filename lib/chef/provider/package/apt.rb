@@ -104,16 +104,19 @@ class Chef
         end
 
         def install_package(name, version)
-          package_name = name.zip(version).map do |n, v|
-            package_data[n][:virtual] ? n : "#{n}=#{v}"
-          end
-          dgrade = "--allow-downgrades" if supports_allow_downgrade? && allow_downgrade
-
           if source_files_exist?
+            sources = name.map { |n| name_sources[n] }
+            logger.info("#{new_resource} installing package(s): #{name.join(" ")}")
             run_noninteractive("dpkg", "-i", *options, *sources)
-          end
 
-          run_noninteractive("apt-get", "-q", "-y", dgrade, config_file_options, default_release_options, options, "install", package_name)
+          else
+            package_name = name.zip(version).map do |n, v|
+              package_data[n][:virtual] ? n : "#{n}=#{v}"
+            end
+
+            dgrade = "--allow-downgrades" if supports_allow_downgrade? && allow_downgrade
+            run_noninteractive("apt-get", "-q", "-y", dgrade, config_file_options, default_release_options, options, "install", package_name)
+          end
         end
 
         def upgrade_package(name, version)
