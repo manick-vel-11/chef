@@ -108,6 +108,11 @@ class Chef
             package_data[n][:virtual] ? n : "#{n}=#{v}"
           end
           dgrade = "--allow-downgrades" if supports_allow_downgrade? && allow_downgrade
+
+          if source_files_exist?
+            run_noninteractive("dpkg", "-i", *options, *sources)
+          end
+
           run_noninteractive("apt-get", "-q", "-y", dgrade, config_file_options, default_release_options, options, "install", package_name)
         end
 
