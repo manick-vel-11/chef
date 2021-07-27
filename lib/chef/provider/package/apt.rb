@@ -350,6 +350,13 @@ class Chef
           end
         end
 
+        # Helper to construct Hash of names-to-sources.
+        #
+        # @return [Hash] Mapping of package names to sources
+        def name_sources
+          @name_sources ||= Hash[*package_name_array.zip(resolved_source_array).flatten]
+        end
+
         # Returns true if all sources exist.  Returns false if any do not, or if no
         # sources were specified.
         #
