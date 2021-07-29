@@ -286,7 +286,7 @@ class Chef
             begin
               pkginfos = resolved_source_array.map do |src|
                 logger.trace("#{new_resource} checking #{src} dpkg status")
-                status = shell_out!("dpkg-deb", "-W", src)
+                status = shell_out("dpkg-deb", "-W", src)
                 status.stdout
               end
               Hash[*package_name_array.zip(pkginfos).flatten]
