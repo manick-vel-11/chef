@@ -26,6 +26,7 @@ class Chef
       class Apt < Chef::Provider::Package
         include Chef::Provider::Package::Deb
         use_multipackage_api
+        use_package_name_for_source
 
         provides :package, platform_family: "debian", target_mode: true
         provides :apt_package, target_mode: true
