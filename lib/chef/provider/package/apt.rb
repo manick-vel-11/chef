@@ -44,16 +44,9 @@ class Chef
             current_resource.package_name(get_package_name)
             # if the source file exists then our package_name is right
             current_resource.version(get_current_version_from(current_package_name_array))
-          elsif !installing?
-            # we can't do this if we're installing with no source, because our package_name
-            # is probably not right.
-            #
-            # if we're removing or purging we don't use source, and our package_name must
-            # be right so we can do this.
-            #
-            # we don't error here on the dpkg command since we'll handle the exception or
-            # the why-run message in define_resource_requirements.
-            current_resource.version(get_current_version_from(current_package_name_array))
+          else
+
+            current_resource.version(get_current_versions)
           end
 
           current_resource
@@ -61,17 +54,6 @@ class Chef
 
         def define_resource_requirements
           super
-
-          requirements.assert(:install, :upgrade) do |a|
-            a.assertion { !resolved_source_array.compact.empty? }
-            a.failure_message Chef::Exceptions::Package, "#{new_resource} the source property is required for action :install or :upgrade"
-          end
-
-          requirements.assert(:install, :upgrade) do |a|
-            a.assertion { source_files_exist? }
-            a.failure_message Chef::Exceptions::Package, "#{new_resource} source file(s) do not exist: #{missing_sources}"
-            a.whyrun "Assuming they would have been previously created."
-          end
         end
 
         def package_data
@@ -302,13 +284,6 @@ class Chef
           @name_package_name ||= name_pkginfo.transform_values { |v| v ? v.split("\t")[0] : nil }
         end
 
-        # Return candidate version array from pkg-deb -W against the source file(s).
-        #
-        # @return [Array] Array of candidate versions read from the source files
-        def get_candidate_version
-          package_name_array.map { |name| name_candidate_version[name] }
-        end
-
         # Return package names from the candidate source file(s).
         #
         # @return [Array] Array of actual package names read from the source files
@@ -343,6 +318,18 @@ class Chef
             end
           end
           nil
+        end
+
+        def get_current_versions
+          package_name_array.map do |package_name|
+            package_data[package_name][:current_version]
+          end
+        end
+
+        def get_candidate_version
+          package_name_array.map do |package_name|
+            package_data[package_name][:candidate_version]
+          end
         end
 
         def get_current_version_from(array)
