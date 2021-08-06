@@ -40,7 +40,7 @@ class Chef
           current_resource.package_name(new_resource.package_name)
 
           if source_files_exist?
-            @candidate_version = get_candidate_version
+            @candidate_version = get_candidate_versions
             current_resource.package_name(get_package_name)
             # if the source file exists then our package_name is right
             current_resource.version(get_current_version_from(current_package_name_array))
@@ -56,6 +56,18 @@ class Chef
           super
         end
 
+        def get_current_versions
+          package_name_array.map do |package_name|
+            package_data[package_name][:current_version]
+          end
+        end
+
+        def get_candidate_versions
+          package_name_array.map do |package_name|
+            package_data[package_name][:candidate_version]
+          end
+        end
+
         def package_data
           @package_data ||= Hash.new do |hash, key|
             hash[key] = package_data_for(key)
@@ -67,7 +79,7 @@ class Chef
         end
 
         def candidate_version
-          @candidate_version ||= get_candidate_version
+          @candidate_version ||= get_candidate_versions
         end
 
         def packages_all_locked?(names, versions)
@@ -276,10 +288,6 @@ class Chef
             end
         end
 
-        def name_candidate_version
-          @name_candidate_version ||= name_pkginfo.transform_values { |v| v ? v.split("\t")[1]&.strip : nil }
-        end
-
         def name_package_name
           @name_package_name ||= name_pkginfo.transform_values { |v| v ? v.split("\t")[0] : nil }
         end
@@ -289,14 +297,6 @@ class Chef
         # @return [Array] Array of actual package names read from the source files
         def get_package_name
           package_name_array.map { |name| name_package_name[name] }
-        end
-
-        # Since upgrade just calls install, this is a helper to determine
-        # if our action means that we'll be calling install_package.
-        #
-        # @return [Boolean] true if we're doing :install or :upgrade
-        def installing?
-          %i{install upgrade}.include?(action)
         end
 
         def read_current_version_of_package(package_name)
@@ -318,18 +318,6 @@ class Chef
             end
           end
           nil
-        end
-
-        def get_current_versions
-          package_name_array.map do |package_name|
-            package_data[package_name][:current_version]
-          end
-        end
-
-        def get_candidate_version
-          package_name_array.map do |package_name|
-            package_data[package_name][:candidate_version]
-          end
         end
 
         def get_current_version_from(array)
