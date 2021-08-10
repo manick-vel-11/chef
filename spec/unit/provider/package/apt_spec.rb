@@ -389,6 +389,38 @@ describe Chef::Provider::Package::Apt do
       end
     end
 
+    describe "performs all operations with source option" do
+      let(:source) { "/tmp/wget_1.11.4-1ubuntu1_amd64.deb" }
+      let(:provider) { Chef::Provider::Package::Dpkg.new(@new_resource, @run_context) }
+
+      before(:each) do
+        ubuntu1804downgrade_stubs
+        @new_resource = Chef::Resource::AptPackage.new("wget", @run_context)
+        @new_resource.source source
+      end
+
+      it "installs package if source is provided" do
+        @new_resource.options("--force-yes")
+        allow(provider).to receive(:package_data).and_return({
+          "wget" => {
+            virtual: true,
+            candidate_version: nil,
+            installed_version: nil,
+          },
+        })
+        expect(provider).to receive(:shell_out_compacted!).with(
+          "dpkg", "-i","--force-yes", "/tmp/wget_1.11.4-1ubuntu1_amd64.deb",
+          {:env=>{"DEBIAN_FRONTEND"=>"noninteractive"},
+          :timeout=>@timeout}
+        )
+        provider.install_package(["wget"],["1.11.4-1ubuntu1"])
+      end
+
+      it "should raise an exception if a source is supplied but not found when :upgrade" do
+        expect { provider.run_action(:upgrade) }.to raise_error(Chef::Exceptions::Package)
+      end
+    end
+
     describe "install_package with old apt-get" do
       # tests apt-get on 1404 that does not support --allow-downgrades
       before(:each) do
@@ -449,6 +481,24 @@ describe Chef::Provider::Package::Apt do
       end
     end
 
+    describe Chef::Resource::AptPackage, "upgrade_package with source option" do
+
+      let(:source) { "/tmp/wget_1.11.4-1ubuntu1_amd64.deb" }
+      let(:provider) { Chef::Provider::Package::Dpkg.new(@new_resource, @run_context) }
+
+      before(:each) do
+        ubuntu1804downgrade_stubs
+        @new_resource = Chef::Resource::AptPackage.new("wget", @run_context)
+        @new_resource.source source
+      end
+
+      it "upgrade package if source is provided" do
+        @new_resource.options("--force-yes")
+        expect(provider).to receive(:install_package).with(["wget"],["1.11.4-1ubuntu1"])
+        provider.upgrade_package(["wget"],["1.11.4-1ubuntu1"])
+      end
+    end
+
     describe Chef::Resource::AptPackage, "remove_package" do
 
       it "should run apt-get remove with the package name" do
@@ -469,6 +519,38 @@ describe Chef::Provider::Package::Apt do
         @new_resource.options("--force-yes")
 
         @provider.remove_package(["irssi"], ["0.8.12-7"])
+      end
+    end
+
+    describe Chef::Resource::AptPackage, "remove_package if source option is provided" do
+
+      let(:source) { "/tmp/wget_1.11.4-1ubuntu1_amd64.deb" }
+      let(:provider) { Chef::Provider::Package::Dpkg.new(@new_resource, @run_context) }
+
+      before(:each) do
+        ubuntu1804downgrade_stubs
+        @new_resource = Chef::Resource::AptPackage.new("wget", @run_context)
+        @new_resource.source source
+      end
+
+      it "should run apt-get remove with the package name" do
+        expect(provider).to receive(:shell_out_compacted!).with(
+          "dpkg", "-r", "wget",
+          {:env=>{"DEBIAN_FRONTEND"=>"noninteractive"},
+          :timeout=>@timeout}
+        )
+        provider.remove_package(["wget"], ["1.11.4-1ubuntu1"])
+      end
+
+      it "should run apt-get remove with the package name and options if specified" do
+        expect(provider).to receive(:shell_out_compacted!).with(
+          "dpkg", "-r","--force-yes", "wget",
+          {:env=>{"DEBIAN_FRONTEND"=>"noninteractive"},
+          :timeout=>@timeout}
+        )
+        @new_resource.options("--force-yes")
+
+        provider.remove_package(["wget"], ["1.11.4-1ubuntu1"])
       end
     end
 
