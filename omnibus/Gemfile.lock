@@ -313,7 +313,7 @@ GEM
     parslet (1.8.2)
     pastel (0.8.0)
       tty-color (~> 0.5)
-    pedump (0.6.2)
+    pedump (0.6.5)
       awesome_print
       iostruct (>= 0.0.4)
       multipart-post (>= 2.0.0)
@@ -326,7 +326,7 @@ GEM
       method_source (~> 1.0)
     public_suffix (4.0.6)
     rack (2.2.3)
-    rainbow (3.0.0)
+    rainbow (3.1.1)
     retryable (3.0.5)
     rspec (3.10.0)
       rspec-core (~> 3.10.0)
